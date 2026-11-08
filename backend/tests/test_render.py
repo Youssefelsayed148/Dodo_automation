@@ -89,4 +89,8 @@ def test_code_pages_render_to_print_size(tmp_path, lang, ptype):
     out = render_code_page(ptype, content, sp, lang, tmp_path / f"{ptype}.png", book_title="كتاب" if lang == "ar" else "Book")
     with Image.open(out) as im:
         assert im.size == sp.pixel_size
-        assert np.asarray(im.convert("L")).min() < 100  # something was drawn
+        arr = np.asarray(im.convert("L"))
+        assert arr.min() < 100  # something was drawn
+        h, w = arr.shape
+        inner = arr[int(h * 0.1):int(h * 0.9), int(w * 0.1):int(w * 0.9)]
+        assert (inner < 100).sum() > 200, "content must be inside the page, not pushed off it"

@@ -62,6 +62,9 @@ body {{ font-family: {body_font}; color: #000; }}
 .fill {{ flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }}
 .fill svg {{ width: 100%; height: 100%; }}
 .fill img {{ max-width: 100%; max-height: 100%; }}
+/* plain block layout: WeasyPrint misplaces column flex items in RTL */
+.col {{ flex: 1; display: block; text-align: center; }}
+.col.centered {{ padding-top: 2.6in; }}
 .pageno {{ position: absolute; bottom: {spec.bleed_in + 0.25}in; left: 0; right: 0; text-align: center; font-size: 11pt; }}
 .story {{ font-size: 22pt; line-height: 1.6; text-align: start; }}
 .qa-q {{ font-size: 22pt; margin-bottom: 0.4in; }}
@@ -121,7 +124,7 @@ def page_fragment(page_type: str, content: dict[str, Any], spec: PageSpec, lang:
         w, _ = drawing_area_in(spec)
         cell_mm = min(14.0, (w * 25.4) / ws.size)
         listing = "".join(f"<span>{escape(p.word if lang == 'ar' else p.word)}</span>" for p in ws.placements)
-        body = (_title(c.get("title") or label(lang, "word_search")) + f'<div class="fill" style="flex-direction:column">'
+        body = (_title(c.get("title") or label(lang, "word_search")) + f'<div class="col">'
                 f'{word_search.to_html(ws, cell_mm)}<div class="wordlist">{listing}</div></div>')
     elif t == "trace_write":
         text = str(c.get("text", ""))
@@ -139,13 +142,13 @@ def page_fragment(page_type: str, content: dict[str, Any], spec: PageSpec, lang:
         paras = "".join(f"<p>{escape(p)}</p>" for p in str(c.get("text", "")).split("\n") if p.strip())
         body = f'<div class="fill"><div class="story">{paras}</div></div>'
     elif t == "title_page":
-        body = (f'<div class="fill" style="flex-direction:column"><div class="title-main">{escape(book_title)}</div>'
+        body = (f'<div class="col centered"><div class="title-main">{escape(book_title)}</div>'
                 f'<div class="title-sub">{escape(str(c.get("subtitle", "")))}</div></div>')
     elif t == "belongs_to_page":
-        body = (f'<div class="fill"><div class="frame"><div class="title-main" style="font-size:30pt">'
+        body = (f'<div class="col centered"><div class="frame"><div class="title-main" style="font-size:30pt">'
                 f'{escape(label(lang, "belongs_to"))}</div><div class="name-line"></div></div></div>')
     elif t == "end_page":
-        body = (f'<div class="fill" style="flex-direction:column"><div class="title-main">{escape(label(lang, "the_end"))}</div>'
+        body = (f'<div class="col centered"><div class="title-main">{escape(label(lang, "the_end"))}</div>'
                 f'<div class="title-sub">{escape(c.get("note") or label(lang, "end_note"))}</div></div>')
     else:
         raise ValueError(f"no code renderer for page type '{t}'")
