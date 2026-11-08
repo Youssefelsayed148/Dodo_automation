@@ -1,0 +1,472 @@
+{
+  "app": {
+    "name": "Dodo Book Studio"
+  },
+  "nav": {
+    "books": "My books",
+    "settings": "Settings",
+    "language": "Switch language",
+    "theme": "Switch light/dark"
+  },
+  "color_theme": {
+    "system": "Auto",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "lang": {
+    "en": "English",
+    "ar": "Arabic"
+  },
+  "common": {
+    "back": "Back",
+    "next": "Next",
+    "finish": "Done",
+    "save": "Save",
+    "saved": "Saved",
+    "loading": "Loading…",
+    "retry": "Retry",
+    "close": "Close",
+    "delete": "Delete",
+    "edit": "Edit",
+    "hide": "Hide",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "remove": "Remove",
+    "refresh": "Refresh"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Cannot reach the backend. Is it running?",
+    "backend_down": "The backend is not responding. Start it with `make dev` and reload this page."
+  },
+  "status": {
+    "draft": "Draft",
+    "analyzed": "Analyzed",
+    "themed": "Themed",
+    "characters": "Characters",
+    "specced": "Specs set",
+    "generating": "Generating",
+    "review": "In review",
+    "exported": "Exported",
+    "planned": "Planned",
+    "queued": "Queued",
+    "generated": "Ready",
+    "failed": "Failed",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "running": "Running",
+    "done": "Done",
+    "cancelled": "Stopped"
+  },
+  "jobs": {
+    "analyze_source": "Analyzing the book",
+    "propose_themes": "Proposing themes",
+    "propose_formats": "Proposing formats",
+    "plan_pages": "Planning pages",
+    "character_briefs": "Creating characters",
+    "character_candidates": "Drawing 4 candidates",
+    "character_edit": "Applying your change",
+    "character_sheet": "Drawing the character sheet",
+    "character_consistency": "Testing consistency",
+    "sample_page": "Drawing the sample page",
+    "generate_pages": "Generating pages",
+    "cover_art": "Drawing cover art",
+    "export_book": "Exporting",
+    "compare_providers": "Comparing providers",
+    "noop": "Test job"
+  },
+  "page_types": {
+    "single_character": "Character portrait",
+    "scene": "Scene",
+    "pattern_mandala": "Pattern / mandala",
+    "hidden_objects_scene": "Hidden objects",
+    "maze": "Maze",
+    "dot_to_dot": "Dot to dot",
+    "word_search": "Word search",
+    "trace_write": "Trace & write",
+    "qa_page": "Q&A page",
+    "story_text": "Story text",
+    "title_page": "Title page",
+    "belongs_to_page": "Belongs-to page",
+    "end_page": "End page"
+  },
+  "confidence": {
+    "high": "High confidence",
+    "medium": "Medium confidence",
+    "low": "Low confidence",
+    "high_help": "Based on real pages you uploaded.",
+    "medium_help": "Based on the store page only. Check the fields.",
+    "low_help": "Very little was readable. Please review every field."
+  },
+  "wizard": {
+    "steps": "Wizard steps"
+  },
+  "steps": {
+    "source": {
+      "short": "Source",
+      "title": "Which book do you like?",
+      "help": "Paste a store link. Optionally add a few pages or paste the description.",
+      "blocked": "Analyze a source first."
+    },
+    "style": {
+      "short": "Style",
+      "title": "The detected style",
+      "help": "This is the formula we will reuse. Edit anything that looks wrong.",
+      "blocked": "A style is needed."
+    },
+    "theme": {
+      "short": "Theme",
+      "title": "Pick an original theme",
+      "help": "Three new ideas built from the formula. Pick one and rename it if you like.",
+      "blocked": "Pick a theme."
+    },
+    "format": {
+      "short": "Format",
+      "title": "Choose the page mix",
+      "help": "Formats mix page types. Edit the shares or ask for a new hybrid.",
+      "blocked": "Choose a format."
+    },
+    "characters": {
+      "short": "Characters",
+      "title": "Create and approve characters",
+      "help": "Pick, refine, test and approve each character, then approve a sample page.",
+      "blocked": "Approve all characters and the sample page."
+    },
+    "specs": {
+      "short": "Specs",
+      "title": "Book specs and page plan",
+      "help": "Set size, page count and book language, then plan the pages.",
+      "blocked": "Plan the pages first."
+    },
+    "generate": {
+      "short": "Generate",
+      "title": "Generate all pages",
+      "help": "Pages are drawn in batches with automatic quality checks and redo.",
+      "blocked": "Wait until all pages are generated."
+    },
+    "review": {
+      "short": "Review",
+      "title": "Review the pages",
+      "help": "Tap a page to reject it. Redo only the rejected ones.",
+      "blocked": "Approve at least one page."
+    },
+    "export": {
+      "short": "Export",
+      "title": "Export the book",
+      "help": "Build the interior and cover PDFs, and optionally upload to Google Drive.",
+      "blocked": ""
+    }
+  },
+  "books": {
+    "title": "My books",
+    "new": "New book",
+    "open": "Open",
+    "empty_title": "No books yet",
+    "empty_body": "Start from a book you like: paste its store link and we will build an original one.",
+    "pages_count": "{{count}} pages",
+    "confirm_delete": "Delete \"{{title}}\"? This cannot be undone.",
+    "import_backup": "Restore backup"
+  },
+  "source": {
+    "mode": {
+      "url": "Store link",
+      "url_pages": "Link + pages",
+      "text": "Theme only"
+    },
+    "url_label": "Store link",
+    "url_hint": "Amazon, Etsy or any shop page of the book you like.",
+    "files_label": "Pages (images or PDF)",
+    "files_hint": "Up to 15 pages. They are used for analysis only and deleted afterwards.",
+    "text_label": "Store description (optional)",
+    "theme_label": "Describe the book or theme you want",
+    "text_placeholder": "Paste the store description here if the page cannot be read…",
+    "originality_note": "Only the style formula is reused – never names, characters or text from the original.",
+    "analyze": "Analyze",
+    "reanalyze": "Analyze again",
+    "analyzing": "Analyzing the book",
+    "fetch": {
+      "ok": "Store page read successfully.",
+      "thin": "The store page had very little readable content.",
+      "failed": "The store page could not be loaded.",
+      "blocked": "That link is not allowed.",
+      "none": "",
+      "fallback": "Paste the description text or upload a few pages, then analyze again."
+    }
+  },
+  "style": {
+    "none": "No style yet. Fill in the fields or go back and analyze a source.",
+    "confidence": "Confidence",
+    "mood": "Mood",
+    "age_group": "Age group",
+    "line_weight": "Line weight",
+    "detail_level": "Detail level",
+    "page_mix": "Page mix of the liked book",
+    "no_mix": "Not detected",
+    "notes": "Notes",
+    "lw": {
+      "thin": "Thin",
+      "medium": "Medium",
+      "bold": "Bold",
+      "extra_bold": "Extra bold"
+    },
+    "dl": {
+      "very_low": "Very low",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    }
+  },
+  "theme": {
+    "empty": "No themes yet",
+    "propose": "Propose themes",
+    "proposing": "Thinking of original themes",
+    "regenerate": "New ideas",
+    "title_label": "Book title"
+  },
+  "format": {
+    "empty": "No formats yet",
+    "propose": "Propose formats",
+    "proposing": "Designing formats",
+    "choose": "Use this format",
+    "chosen": "Chosen",
+    "edit_mix": "Edit mix",
+    "total": "Total {{total}}%",
+    "add_type": "Add page type",
+    "hybrid_label": "Ask for a new hybrid",
+    "hybrid_placeholder": "e.g. half coloring, half mazes and tracing",
+    "hybrid_button": "Create hybrid",
+    "regenerate": "New formats",
+    "preview_title": "Content pages: {{count}}",
+    "preview_note": "Title, belongs-to and end pages are added automatically. Text and puzzles are drawn by code."
+  },
+  "characters": {
+    "empty": "No characters yet",
+    "empty_help": "Create characters from the theme, or reuse one from your library.",
+    "how_many": "How many characters?",
+    "create_briefs": "Create characters",
+    "creating": "Creating character briefs",
+    "from_library": "From library",
+    "library": "Character library",
+    "library_empty": "No saved characters yet.",
+    "style_anchor": "Style anchor",
+    "style_anchor_help": "Line rules + reference attached to every page.",
+    "style_reference": "Style reference",
+    "edit_brief": "Edit brief",
+    "species": "Species",
+    "signature": "Signature feature",
+    "fields": {
+      "name": "Name",
+      "species": "Species",
+      "personality": "Personality",
+      "proportions": "Proportions",
+      "signature_feature": "Signature feature",
+      "outfit": "Outfit"
+    },
+    "candidates": "Candidates",
+    "generate_candidates": "Draw 4 candidates",
+    "more_candidates": "Draw 4 more",
+    "picked": "Picked",
+    "lock_edit": "Lock and edit",
+    "edit_placeholder": "e.g. shorter ears, rounder face",
+    "apply_edit": "Apply change",
+    "sheet": "Character sheet",
+    "make_sheet": "Make sheet",
+    "redo_sheet": "Redo sheet",
+    "views": {
+      "front": "Front",
+      "side": "Side",
+      "three-quarter": "3/4",
+      "happy": "Happy",
+      "sleepy": "Sleepy",
+      "surprised": "Surprised"
+    },
+    "consistency": "Consistency test",
+    "run_test": "Run test",
+    "rerun_test": "Run again",
+    "passed": "Passed",
+    "failed": "Failed",
+    "overridden": "Overridden",
+    "approve": "Approve character",
+    "approve_override": "Approve anyway",
+    "override_confirm": "The test did not pass. Approve this character anyway?",
+    "unapprove": "Unlock to change",
+    "save_library": "Save to library",
+    "in_library": "In library",
+    "sample_title": "Sample page",
+    "sample_blocked": "Approve every character first.",
+    "sample_make": "Draw sample page",
+    "sample_again": "Try another",
+    "sample_approve": "Approve sample"
+  },
+  "specs": {
+    "page_count": "Total pages",
+    "trim": "Trim size",
+    "custom": "Custom…",
+    "bleed": "Add bleed (0.125 in each side)",
+    "belongs_to": "Include a “this book belongs to” page",
+    "book_language": "Book language",
+    "book_language_help": "Language of the text printed in the book (independent of the app language).",
+    "image_provider": "Image model for this book",
+    "provider_default": "Default from Settings",
+    "pixel_size": "Each page: {{w}} × {{h}} px at 300 DPI",
+    "invalid_trim": "Invalid trim size",
+    "plan": "Plan pages",
+    "replan": "Plan again",
+    "replan_warning": "Planning again replaces the current page list.",
+    "planning": "Planning pages",
+    "plan_title": "Page plan ({{count}} pages)",
+    "col_type": "Type",
+    "col_description": "Description",
+    "trims": {
+      "A4": "A4 (210 × 297 mm)",
+      "A5": "A5 (148 × 210 mm)",
+      "8.5x11in": "8.5 × 11 in",
+      "8x10in": "8 × 10 in",
+      "6x9in": "6 × 9 in"
+    }
+  },
+  "generate": {
+    "pages_done": "{{done}} of {{total}} pages",
+    "redos": "Automatic redos: {{count}}",
+    "batch": "Batch {{n}} of {{of}}",
+    "cost": "Est. cost ${{usd}}",
+    "start": "Start generating",
+    "continue": "Continue",
+    "pause": "Pause",
+    "resume": "Resume",
+    "to_review": "Go to review",
+    "background_note": "You can close the browser – generation keeps running and resumes after a restart.",
+    "job_label": "Generating pages"
+  },
+  "review": {
+    "failed_banner": "{{count}} page(s) failed the automatic checks. They are shown first.",
+    "summary": "{{approved}} of {{total}} approved",
+    "approve_all": "Approve all",
+    "note_placeholder": "Optional note for the redo (e.g. simpler background)",
+    "redo": "Redo {{count}} page(s)",
+    "redoing": "Redoing pages",
+    "tap_help": "Tap a page to reject or un-reject it.",
+    "page_n": "Page {{n}}",
+    "details": "Details",
+    "attempts": "Attempts: {{count}}",
+    "description": "Description",
+    "prompt": "Prompt",
+    "qa": "Quality check",
+    "qa_pass": "Passed",
+    "approve": "Approve",
+    "reject": "Reject",
+    "unreject": "Un-reject"
+  },
+  "export": {
+    "cover": "Cover",
+    "template": "Template",
+    "templates": {
+      "classic": "Classic (title on top)",
+      "framed": "Framed",
+      "band": "Title band"
+    },
+    "cover_art": "Cover art",
+    "first_scene": "First scene page",
+    "generated_art": "Generated cover art",
+    "subtitle": "Subtitle",
+    "save_cover": "Save cover",
+    "generate_art": "Draw new cover art",
+    "cover_preview": "Cover preview",
+    "files_title": "Files",
+    "drive_toggle": "Also upload to Google Drive",
+    "drive_connect_hint": "Connect Google Drive in Settings to upload.",
+    "drive_setup_hint": "Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, then connect in Settings.",
+    "folder_name": "Drive folder name",
+    "folder_hint": "If the folder exists, “Title (2)” is used.",
+    "run": "Build PDFs",
+    "backup": "Download backup (.zip)",
+    "running": "Exporting",
+    "drive_done": "Uploaded to Google Drive:",
+    "all_files": "All files ({{count}})",
+    "pdf_preview": "PDF preview"
+  },
+  "cost": {
+    "title": "Cost",
+    "total": "Total ${{usd}}",
+    "per_page": "Per image page ${{usd}}",
+    "redos": "Redos: {{count}}",
+    "ceiling": "Ceiling ${{usd}}",
+    "per_page_table": "Per page",
+    "images": "Images",
+    "redone": "Redone"
+  },
+  "prompts": {
+    "open": "Export prompts",
+    "title": "Prompts for Claude / ChatGPT",
+    "help": "Use these to plan or draw the book manually in a chat. Paste the chat’s answer back below.",
+    "planning": "Planning prompt",
+    "pack": "Page prompt pack",
+    "batch_size": "Batch size",
+    "batch_n": "Batch {{n}} (pages {{pages}})",
+    "no_batches": "Plan the pages first.",
+    "import": "Import from chat",
+    "import_placeholder": "Paste the JSON or numbered list from the chat…",
+    "preview": "Preview changes",
+    "apply": "Replace page plan",
+    "apply_confirm": "Replace the current page plan with the imported one?",
+    "applied": "Page plan replaced.",
+    "changed": "{{count}} change(s)",
+    "change": {
+      "same": "Same",
+      "changed": "Changed",
+      "added": "Added",
+      "removed": "Removed"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "generation": "Generation",
+    "batch_size": "Batch size",
+    "concurrency": "Parallel image calls",
+    "max_redo": "Automatic redos per page",
+    "cost_ceiling": "Cost ceiling per book (USD)",
+    "cost_ceiling_help": "Generation pauses when reached. 0 = no ceiling.",
+    "default_trim": "Default trim size",
+    "default_language": "Default book language",
+    "vision_qa": "Vision quality check (uses the LLM)",
+    "providers": "Models",
+    "image_provider": "Image provider",
+    "provider_env": "From .env ({{name}})",
+    "provider_help": "Choose the winner of the comparison test. Keys live in .env.",
+    "not_configured": "no API key",
+    "text_llm": "Text & vision model",
+    "mock": "Mock (offline)",
+    "compare_link": "Compare image models",
+    "drive": "Google Drive",
+    "drive_not_configured": "Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env and restart the backend.",
+    "drive_connected": "Connected",
+    "drive_disconnected": "Not connected",
+    "drive_connect": "Connect Google",
+    "drive_disconnect": "Disconnect"
+  },
+  "compare": {
+    "title": "Compare image models",
+    "help": "Runs the same 10 page prompts through each provider. Score the results yourself – no winner is picked automatically.",
+    "theme_placeholder": "Theme and characters (optional)",
+    "run": "Run comparison",
+    "runs": "Runs",
+    "no_runs": "No runs yet.",
+    "summary": "Summary",
+    "no_winner": "Pick the provider in Settings after scoring.",
+    "cols": {
+      "provider": "Provider",
+      "model": "Model",
+      "images": "Images",
+      "errors": "Errors",
+      "avg_seconds": "Avg. seconds",
+      "total_cost_usd": "Cost USD",
+      "qa_redo_rate": "QA fail rate",
+      "avg_clean_outlines": "Outlines (1-5)",
+      "avg_matches_sheet": "Matches sheet (1-5)"
+    },
+    "score": {
+      "clean_outlines": "Outlines",
+      "matches_sheet": "Sheet"
+    }
+  }
+}
