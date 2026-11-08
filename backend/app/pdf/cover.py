@@ -74,5 +74,8 @@ def build_cover(book: Book, out: Path) -> Path:
     from weasyprint import HTML
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    HTML(string=cover_html(book), base_url=str(out.parent)).write_pdf(out)
+    from ..render.raster import PDF_LOCK
+
+    with PDF_LOCK:
+        HTML(string=cover_html(book), base_url=str(out.parent)).write_pdf(out)
     return out
