@@ -1,7 +1,7 @@
 # STATE
 
 ## Current step
-All build prompts (0–13) implemented in one pass. **Verification status: see "Known issues"** – the build container had no access to PyPI/npm, so the FastAPI/SQLAlchemy/WeasyPrint/React parts are verified only by GitHub Actions CI, not locally.
+All build prompts (0–13) implemented in one pass. Full CI is green (GitHub Actions run #3): backend ruff + full pytest suite (DB, API, generation, PDFs, Arabic) + harness smoke test on the mock provider; frontend vitest + type check + build.
 
 ## Done
 - 0 Repo skeleton, AGENTS.md, STATE.md, .gitignore, .env.example, README, Makefile + `scripts/dev.sh`, `/health`.
@@ -43,7 +43,9 @@ Frontend: react, react-dom, react-router-dom, @tanstack/react-query, i18next, re
 See README: `make setup && make dev`; tests `make test`; harness `make compare ARGS="--providers mock,openai"`.
 
 ## Known issues
-- Built in a container without PyPI/npm access: pure-logic backend tests (specs, cleanup, QA, renderers, SSRF/fetcher, prompts, providers, Drive planning, harness) ran locally; DB/API/PDF tests and the frontend type check/build run only in GitHub Actions.
+- Verified in CI only (the build container had no PyPI/npm access). The frontend has not been clicked through in a real browser yet.
+- WeasyPrint/Pango and pypdfium2 are not thread-safe: all native PDF calls go through `render.raster.PDF_LOCK`. Keep using it for any new PDF code.
+- WeasyPrint misplaces column-flex items in RTL: use block layout for centered page content.
 - Fonts are not committed (downloaded by `make fonts`); PDFs fall back to DejaVu Sans / system Noto.
 - No end-to-end run against real image/LLM providers has been done yet (needs keys); run the comparison harness first.
 - Vision QA and consistency checks depend on the chosen LLM; with mocks they always pass.
