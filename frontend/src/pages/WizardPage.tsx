@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Book, Gates } from "../api/types";
-import { ErrorBox } from "../components/ui";
+import ManualTasksPanel, { useManualMode } from "../components/ManualTasks";
+import { ErrorBox, Tag } from "../components/ui";
 import CharactersStep from "./steps/CharactersStep";
 import ExportPromptsPanel from "./steps/ExportPromptsPanel";
 import ExportStep from "./steps/ExportStep";
@@ -64,6 +65,7 @@ export default function WizardPage() {
   const [promptsOpen, setPromptsOpen] = useState(false);
   const book = useQuery({ queryKey: ["book", id], queryFn: () => api.book(id), enabled: Number.isFinite(id) });
   const chars = useQuery({ queryKey: ["characters", id], queryFn: () => api.characters(id), enabled: Number.isFinite(id) });
+  const manual = useManualMode();
 
   if (book.error) return <ErrorBox error={book.error} />;
   if (!book.data) return <div className="muted">{t("common.loading")}</div>;
@@ -82,6 +84,7 @@ export default function WizardPage() {
     <div>
       <div className="row" style={{ marginBlockEnd: 4 }}>
         <h1 style={{ margin: 0 }}>{b.title}</h1>
+        {manual && <Tag kind="warn">{t("manual.badge")}</Tag>}
         <span className="spacer" />
         {idx >= 3 && (
           <button className="btn small" onClick={() => setPromptsOpen(true)}>
@@ -105,6 +108,7 @@ export default function WizardPage() {
       </nav>
       <h2>{t(`steps.${current}.title`)}</h2>
       <p className="muted">{t(`steps.${current}.help`)}</p>
+      <ManualTasksPanel book={b} />
       {current === "source" && <SourceStep {...props} />}
       {current === "style" && <StyleStep {...props} />}
       {current === "theme" && <ThemeStep {...props} />}

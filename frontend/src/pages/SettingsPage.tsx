@@ -36,6 +36,26 @@ export default function SettingsPage() {
     <div className="stack">
       <h1>{t("settings.title")}</h1>
       <div className="card">
+        <div className="row">
+          <h3 style={{ margin: 0 }}>{t("settings.manual_title")}</h3>
+          <Tag kind={s.data.manual?.active ? "ok" : ""}>{s.data.manual?.active ? t("settings.manual_active") : t("settings.manual_inactive")}</Tag>
+        </div>
+        <p className="muted small">{t("settings.manual_help")}</p>
+        <div className="field">
+          <label htmlFor="mm">{t("settings.manual_title")}</label>
+          <select
+            id="mm"
+            value={v.manual_mode === null || v.manual_mode === undefined ? "auto" : v.manual_mode ? "on" : "off"}
+            onChange={(e) => set("manual_mode", e.target.value === "auto" ? null : e.target.value === "on")}
+          >
+            <option value="auto">{t("settings.manual_auto")}</option>
+            <option value="on">{t("settings.manual_on")}</option>
+            <option value="off">{t("settings.manual_off")}</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="card">
         <h3>{t("settings.generation")}</h3>
         <div className="grid">
           <div className="field">

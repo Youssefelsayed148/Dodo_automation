@@ -56,7 +56,8 @@
     "rejected": "Rejected",
     "running": "Running",
     "done": "Done",
-    "cancelled": "Stopped"
+    "cancelled": "Stopped",
+    "waiting": "Waiting for you"
   },
   "jobs": {
     "analyze_source": "Analyzing the book",
@@ -278,7 +279,8 @@
       "three-quarter": "3/4",
       "happy": "Happy",
       "sleepy": "Sleepy",
-      "surprised": "Surprised"
+      "surprised": "Surprised",
+      "combined": "Combined sheet"
     },
     "consistency": "Consistency test",
     "run_test": "Run test",
@@ -296,7 +298,11 @@
     "sample_blocked": "Approve every character first.",
     "sample_make": "Draw sample page",
     "sample_again": "Try another",
-    "sample_approve": "Approve sample"
+    "sample_approve": "Approve sample",
+    "manual_verdict_help": "Compare each test scene with the character sheet and mark it. Approval needs every scene marked as right (or an override).",
+    "mark_pass": "Looks right",
+    "mark_fail": "Not right",
+    "verdict_open": "Not judged yet"
   },
   "specs": {
     "page_count": "Total pages",
@@ -336,7 +342,8 @@
     "resume": "Resume",
     "to_review": "Go to review",
     "background_note": "You can close the browser – generation keeps running and resumes after a restart.",
-    "job_label": "Generating pages"
+    "job_label": "Generating pages",
+    "waiting_chatgpt": "Waiting for your images from ChatGPT – see the ChatGPT tasks above. Generation continues by itself after each batch."
   },
   "review": {
     "failed_banner": "{{count}} page(s) failed the automatic checks. They are shown first.",
@@ -442,7 +449,14 @@
     "drive_connected": "Connected",
     "drive_disconnected": "Not connected",
     "drive_connect": "Connect Google",
-    "drive_disconnect": "Disconnect"
+    "drive_disconnect": "Disconnect",
+    "manual_title": "Manual mode (ChatGPT)",
+    "manual_help": "Without paid API keys, every AI step becomes a ChatGPT task: copy the prompt, run it in ChatGPT, paste the answer or upload the image. Everything else (puzzles, cleanup, quality checks, PDFs, Drive) stays automatic.",
+    "manual_auto": "Auto (on when there is no API key and no image provider)",
+    "manual_on": "On – use ChatGPT",
+    "manual_off": "Off – use the API / mock providers",
+    "manual_active": "Manual mode is on",
+    "manual_inactive": "Manual mode is off"
   },
   "compare": {
     "title": "Compare image models",
@@ -467,6 +481,65 @@
     "score": {
       "clean_outlines": "Outlines",
       "matches_sheet": "Sheet"
+    }
+  },
+  "manual": {
+    "badge": "ChatGPT mode",
+    "panel_title": "Your turn in ChatGPT",
+    "panel_help": "Copy the prompt, run it in ChatGPT, then paste the answer or drop the image here. The book continues by itself after the last answer.",
+    "open_count": "{{count}} open",
+    "open_chatgpt": "Open ChatGPT",
+    "copy_prompt": "Copy prompt",
+    "copy_all": "Copy all prompts (one message)",
+    "copy_all_help": "ChatGPT makes one image per reply: write “next” after each image.",
+    "show_prompt": "Show prompt",
+    "text_steps": "1. Copy the prompt · 2. Paste it in ChatGPT · 3. Paste ChatGPT's whole reply below",
+    "image_steps": "1. Copy a prompt (or all of them) · 2. Let ChatGPT draw · 3. Drop, paste or upload each image",
+    "answer_placeholder": "Paste ChatGPT's reply here (the JSON)…",
+    "submit": "Submit answer",
+    "invalid": "This answer can't be used yet:",
+    "copy_fix": "Copy fix message for ChatGPT",
+    "fix_help": "Paste it into the same ChatGPT chat, then paste the new reply here.",
+    "attach_refs": "Attach these pictures to your ChatGPT message:",
+    "download": "Download",
+    "reference": "Reference {{n}}",
+    "drop_here": "Drop, paste (Ctrl+V) or click to upload the image",
+    "uploading": "Uploading…",
+    "skip": "Skip",
+    "bulk_upload": "Upload several images",
+    "bulk_help": "Files named like page_12.png go to page 12; other files fill the open slots in order.",
+    "bulk_result": "{{matched}} image(s) matched, {{unmatched}} not used",
+    "image_n": "Image {{label}}",
+    "page_n": "Page {{label}}",
+    "left": "{{count}} left",
+    "setup_open": "Set up ChatGPT",
+    "setup_title": "Set up ChatGPT for this book",
+    "setup_help": "Use one ChatGPT Project per book: its instructions and reference images keep the style and the characters consistent in every chat.",
+    "setup_step1": "In ChatGPT create a new Project named:",
+    "setup_step2": "Paste these instructions into the project instructions:",
+    "setup_step3": "Upload these reference images to the project files:",
+    "setup_step4": "Run every ChatGPT task in a chat inside this project. Update the instructions after you approve characters.",
+    "copy_name": "Copy name",
+    "copy_instructions": "Copy instructions",
+    "no_refs": "Reference images appear here after you pick characters.",
+    "ref_kinds": {
+      "style": "Style reference",
+      "sheet": "Character sheet: {{name}}",
+      "character": "Character: {{name}}"
+    },
+    "tasks": {
+      "analyze_source": "Analyze the book you like",
+      "propose_themes": "Propose 3 themes",
+      "propose_formats": "Propose book formats",
+      "character_brief": "Write the character briefs",
+      "plan_pages": "Plan all pages",
+      "candidate": "Character options: {{name}}",
+      "character_edit": "Edited character: {{name}}",
+      "sheet": "Character sheet: {{name}}",
+      "test_scene": "Consistency test: {{name}}",
+      "sample": "Sample page",
+      "page": "Book pages",
+      "cover": "Cover art (optional)"
     }
   }
 }

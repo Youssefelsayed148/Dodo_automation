@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState as useStateCompat } from "react";
 import { api } from "../api/client";
-import type { Job } from "../api/types";
+import { isActive, type Job } from "../api/types";
 
 /** Poll a job until it finishes; runs `onDone` once when it reaches `done`. */
 export function useJob(jobId: number | null | undefined, onDone?: (job: Job) => void, invalidate: unknown[][] = []) {
@@ -13,7 +13,7 @@ export function useJob(jobId: number | null | undefined, onDone?: (job: Job) => 
     enabled: !!jobId,
     refetchInterval: (query) => {
       const s = query.state.data?.status;
-      return s === "done" || s === "failed" || s === "cancelled" ? false : 800;
+      return s === "done" || s === "failed" || s === "cancelled" ? false : s === "waiting" ? 2000 : 800;
     },
   });
   useEffect(() => {
@@ -26,7 +26,8 @@ export function useJob(jobId: number | null | undefined, onDone?: (job: Job) => 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q.data]);
-  const running = !!q.data && (q.data.status === "queued" || q.data.status === "running");
+  // "waiting" (for the user in ChatGPT) still counts as running: polling continues.
+  const running = !!q.data && isActive(q.data.status);
   return { job: q.data, running: running || (!!jobId && !q.data) };
 }
 
@@ -41,7 +42,7 @@ export function useStepJob(bookId: number, types: string[]) {
   });
   useEffect(() => {
     if (jobId !== null || !active.data) return;
-    const running = active.data.find((j) => types.includes(j.type) && (j.status === "queued" || j.status === "running"));
+    const running = active.data.find((j) => types.includes(j.type) && isActive(j.status));
     if (running) setJobId(running.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.data]);

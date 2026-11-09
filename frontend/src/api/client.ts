@@ -1,8 +1,8 @@
 // API client. Base URL comes from VITE_API_BASE (empty = same origin, which
 // works with the Vite dev proxy and when the backend serves the build).
 import type {
-  Book, Character, CompareRun, Cost, FormatOption, Gates, Job, Page, PromptBatch, Recipe, SettingsResponse,
-  SettingsValues, ThemeOption,
+  Book, Character, ChatGptSetup, CompareRun, Cost, FormatOption, Gates, Job, ManualInfo, ManualList, ManualTask, Page,
+  PromptBatch, Recipe, SettingsResponse, SettingsValues, ThemeOption,
 } from "./types";
 
 export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -64,7 +64,24 @@ const B = (id: number) => `/api/books/${id}`;
 export const api = {
   health: () => get<{ status: string }>("/health"),
   settings: () => get<SettingsResponse>("/api/settings"),
-  saveSettings: (v: Partial<SettingsValues>) => put<{ values: SettingsValues }>("/api/settings", v),
+  saveSettings: (v: Partial<SettingsValues>) => put<{ values: SettingsValues; manual: ManualInfo }>("/api/settings", v),
+
+  manualTasks: (id: number) => get<ManualList>(`${B(id)}/manual`),
+  answerText: (taskId: number, text: string) => post<ManualTask>(`/api/manual/${taskId}/text`, { text }),
+  answerImage: (taskId: number, file: Blob, name = "image.png") => {
+    const f = new FormData();
+    f.append("file", file, name);
+    return post<ManualTask>(`/api/manual/${taskId}/image`, f);
+  },
+  answerImagesBulk: (id: number, files: File[]) => {
+    const f = new FormData();
+    files.forEach((file) => f.append("files", file, file.name));
+    return post<{ matched: { file: string; task_id: number; label: string }[]; unmatched: string[]; errors: string[] }>(`${B(id)}/manual/images`, f);
+  },
+  skipTask: (taskId: number) => post<ManualTask>(`/api/manual/${taskId}/skip`),
+  chatgptSetup: (id: number) => get<ChatGptSetup>(`${B(id)}/chatgpt-setup`),
+  consistencyVerdict: (id: number, cid: number, assetId: number, pass: boolean, issues: string[] = []) =>
+    post<Character>(`${B(id)}/characters/${cid}/consistency/verdict`, { asset_id: assetId, pass, issues }),
 
   job: (id: number) => get<Job>(`/api/jobs/${id}`),
   jobs: (bookId?: number) => get<Job[]>(`/api/jobs${bookId ? `?book_id=${bookId}` : ""}`),
