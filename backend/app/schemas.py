@@ -98,6 +98,7 @@ class PlannedPage(BaseModel):
     description: str = ""
     characters: list[str] = []
     text_content: dict[str, Any] = {}
+    prompt: str = ""  # full image prompt for image pages (used directly in manual mode)
 
 
 class PagePlanOut(BaseModel):

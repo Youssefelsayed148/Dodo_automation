@@ -141,23 +141,26 @@ def generate_pages(ctx: JobContext) -> dict[str, Any]:
 
 @handler("cover_art")
 def cover_art(ctx: JobContext) -> dict[str, Any]:
-    from ..providers.registry import get_image_provider
     from ..services import storage
-    from ..services.characters import sheet_images, style_anchor
+    from ..services.characters import provider_name, sheet_ref_paths, style_anchor, style_ref_paths
     from ..services.cleanup import clean_line_art, save_print_png
     from ..services.generation import image_size_hint
+    from ..services.manual import ImageReq, image_batch
     from ..services.specs import page_spec
 
     with ctx.session() as s:
         book = _book(s, ctx)
         chars = s.query(Character).filter(Character.book_id == book.id).all()
-        rules, refs = style_anchor(book)
+        rules, _ = style_anchor(book)
         who = " and ".join(c.name for c in chars) or "the main characters"
         prompt = (f"Cover illustration for a children's coloring book about {book.title}: {who} posing happily, "
                   f"leave the top quarter of the image empty for a title. {rules}")
-        provider = get_image_provider((book.meta or {}).get("image_provider") or None)
+        refs = (style_ref_paths(book) + [p for c in chars for p in sheet_ref_paths(c, 1)])[:4]
         with usage_context(book_id=book.id, purpose="cover"):
-            data = provider.generate(prompt, image_size_hint(book), reference_images=(refs + [i for c in chars for i in sheet_images(c, 1)])[:4])
+            [data] = image_batch(book.id, "cover", [ImageReq(prompt, label="cover", refs=refs, size=image_size_hint(book))],
+                                 group="cover", provider_name=provider_name(book))
+        if data is None:  # skipped in ChatGPT: a page can be used as cover art instead
+            return {"skipped": True}
         path = storage.sub(book.id, "cover") / "cover_art.png"
         save_print_png(clean_line_art(data, page_spec(book.trim_size, book.bleed)), path)
         meta = dict(book.meta or {})

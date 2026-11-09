@@ -1,5 +1,9 @@
 export type Lang = "en" | "ar";
-export type JobStatus = "queued" | "running" | "done" | "failed" | "cancelled";
+export type JobStatus = "queued" | "running" | "waiting" | "done" | "failed" | "cancelled";
+
+/** Job states that are still in progress ("waiting" = waiting for the user in ChatGPT). */
+export const ACTIVE_JOB = ["queued", "running", "waiting"];
+export const isActive = (s: string | undefined) => !!s && ACTIVE_JOB.includes(s);
 
 export interface Job {
   id: number;
@@ -89,7 +93,8 @@ export interface Asset {
 export interface Consistency {
   pass: boolean;
   override: boolean;
-  results: { asset_id: number; scene: string; pass: boolean; issues: string[] }[];
+  manual?: boolean;
+  results: { asset_id: number; scene: string; pass: boolean | null; issues: string[] }[];
 }
 
 export interface Character {
@@ -143,6 +148,14 @@ export interface SettingsValues {
   cost_ceiling_usd: number;
   max_redo: number;
   vision_qa: boolean;
+  manual_mode: boolean | null;
+}
+
+export interface ManualInfo {
+  active: boolean;
+  setting: boolean | null;
+  env: boolean | null;
+  auto: boolean;
 }
 
 export interface SettingsResponse {
@@ -155,6 +168,54 @@ export interface SettingsResponse {
     text_model: string;
   };
   drive: { configured: boolean; connected: boolean };
+  manual: ManualInfo;
+}
+
+export interface ManualTask {
+  id: number;
+  job_id: number | null;
+  job_type: string | null;
+  kind: "text" | "image";
+  task: string;
+  group: string;
+  title: string;
+  prompt: string;
+  status: "pending" | "done" | "skipped";
+  label: string;
+  refs: { index: number; url: string; name: string }[];
+  size: [number, number] | null;
+  skippable: boolean;
+  expected_count: number | null;
+  character: string | null;
+  page_index: number | null;
+  scene: string | null;
+  answer_url: string | null;
+}
+
+export interface ManualGroup {
+  key: string;
+  job_id: number | null;
+  job_type: string | null;
+  group: string;
+  kind: "text" | "image";
+  task: string;
+  tasks: ManualTask[];
+  all_prompts: string | null;
+}
+
+export interface ManualList {
+  manual_mode: boolean;
+  chatgpt_url: string;
+  groups: ManualGroup[];
+  pending: ManualTask[];
+  recent: ManualTask[];
+  active_jobs: Job[];
+}
+
+export interface ChatGptSetup {
+  instructions: string;
+  project_name: string;
+  references: { kind: "style" | "sheet" | "character"; name: string; url: string }[];
 }
 
 export interface Cost {

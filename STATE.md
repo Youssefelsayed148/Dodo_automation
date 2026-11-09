@@ -1,7 +1,7 @@
 # STATE
 
 ## Current step
-All build prompts (0–13) implemented in one pass. Full CI is green (GitHub Actions run #3): backend ruff + full pytest suite (DB, API, generation, PDFs, Arabic) + harness smoke test on the mock provider; frontend vitest + type check + build.
+Manual mode (ChatGPT Pro, no paid API) implemented per `MANUAL_MODE_PLAN.md` (work order 1–7). Before that: all build prompts (0–13) implemented in one pass. Full CI is green (GitHub Actions run #3): backend ruff + full pytest suite (DB, API, generation, PDFs, Arabic) + harness smoke test on the mock provider; frontend vitest + type check + build.
 
 ## Done
 - 0 Repo skeleton, AGENTS.md, STATE.md, .gitignore, .env.example, README, Makefile + `scripts/dev.sh`, `/health`.
@@ -19,6 +19,15 @@ All build prompts (0–13) implemented in one pass. Full CI is green (GitHub Act
 - 12 Book Brief builder, planning prompt, page prompt packs (5/10), `.md` download, import (JSON or numbered list) with readable errors and diff.
 - 13 Cost view (per book / per page / redos), cost ceiling, backup zip export + re-import, README, CI.
 
+## Manual mode (MANUAL_MODE_PLAN.md) – done
+- `ManualTask` model + Alembic `0002_manual_tasks`; job status `waiting` (runner: `AwaitingManual` → waiting, `resume_if_ready` re-queues when no task is pending; waiting jobs are active for dedupe/cancel and ignored by `claim_next`; contextvar `current_job`).
+- `services/manual.py`: mode switch (setting `manual_mode` → `MANUAL_MODE` env → auto), `request_text`, `image_batch` (API mode calls the provider; manual mode returns answers or creates all missing tasks at once), `submit_text` (JSON extraction, Pydantic model named in the task, `expected_count`, readable errors + fix prompt), `submit_image`, `bulk_images` (filename number → label, else in order), `skip` (`min_done` per group), task grouping + one-message "copy all prompts".
+- `providers/manual.ManualTextLLM` (text + vision) chosen by the registry in manual mode (test overrides still win); `llm.structured()` passes model name/meta and skips the repair round trip in manual mode.
+- Steps: analysis (source pictures kept as task references until answered), themes/formats/briefs (1 text task each), candidates (batch of 4, skippable, min 1), lock-and-edit (template, no LLM), sheet (one combined image, `view: combined`), consistency (3 skippable scenes, user verdicts), sample, page plan (prompt per image page, count enforced), generation (code pages first, image pages one batch at a time, programmatic QA only, failures shown in Review), review redo (new tasks with note + issues), cover art (skippable), content QA skipped.
+- API: `GET /api/books/{id}/manual`, `POST /api/manual/{task}/text|image|skip`, `GET /api/manual/{task}/ref/{n}`, `POST /api/books/{id}/manual/images`, `POST …/characters/{cid}/consistency/verdict`, `GET /api/books/{id}/chatgpt-setup`, settings `manual_mode` + `manual` info.
+- Frontend: ChatGPT tasks panel at the top of every step (copy prompt, open ChatGPT, answer box with fix prompt, image cards with drop/paste/click upload, references download, copy-all, bulk upload, skip), "Waiting for you" status, consistency pass/fail buttons, combined sheet, setup card, Settings toggle, en/ar strings.
+- Tests: `tests/test_manual.py` (full manual book end to end through export, no duplicate tasks, validation errors + fix prompt, page count, bulk matching, skip rules, consistency verdicts + override, redo).
+
 ## Decisions
 - Prompt files live in `backend/app/prompts/` (PLAN §5 layout) rather than `backend/prompts/` (§10), so they ship with the package.
 - Added columns beyond PLAN §6: `Book.style_anchor`, `Book.meta` (fetch info, sample, cover, drive, per-book provider), `Page.description`, `Page.meta` (character ids, user note), `Job.message/result/attempts`, `UsageLog.page_id/purpose`. Needed for the style anchor, gates and per-page cost.
@@ -29,6 +38,10 @@ All build prompts (0–13) implemented in one pass. Full CI is green (GitHub Act
 - A “pause” is a cancel + resume: generation only processes `queued` pages, so retrying the job continues where it stopped.
 - Default Claude model `claude-opus-5-5` (configurable via `ANTHROPIC_MODEL`).
 - Image cost estimates are configurable defaults (`COST_TABLE`), not authoritative prices.
+- Manual mode task keys include the job id (so "regenerate" asks again), except page images (`stable`: prompt + seed with the attempt), so a cancelled and restarted generation reuses uploaded pages.
+- Manual-mode text tasks are created in a separate DB session; handlers must not hold uncommitted writes when they ask (all requests come before side effects).
+- With no API key and `IMAGE_PROVIDER=mock` the app now starts in manual mode (plan §1 "auto"); mock-only use needs `MANUAL_MODE=0`. `tests/conftest.py` sets `MANUAL_MODE=0`.
+- Analysis in manual mode keeps the fetched/uploaded source pictures until the ChatGPT answer arrives (the user must attach them), then deletes them as before.
 
 ## Dependencies
 Backend: fastapi, uvicorn[standard], sqlalchemy 2, alembic, pydantic 2, httpx, python-multipart, pillow, numpy, weasyprint, pypdfium2 (PDF→images, HTML page rasterizing), beautifulsoup4 (store page parsing), anthropic, google-api-python-client, google-auth-oauthlib. Dev: pytest, ruff.
@@ -43,7 +56,8 @@ Frontend: react, react-dom, react-router-dom, @tanstack/react-query, i18next, re
 See README: `make setup && make dev`; tests `make test`; harness `make compare ARGS="--providers mock,openai"`.
 
 ## Known issues
-- Verified in CI only (the build container had no PyPI/npm access). The frontend has not been clicked through in a real browser yet.
+- Verified in CI only (the build container had no PyPI/npm access). The frontend (including the manual-mode panel) has not been clicked through in a real browser yet.
+- Manual mode has not been tried against real ChatGPT output yet; ChatGPT images often go close to the edges, so expect some pages flagged by the edge check (approve them in Review if they look fine).
 - WeasyPrint/Pango and pypdfium2 are not thread-safe: all native PDF calls go through `render.raster.PDF_LOCK`. Keep using it for any new PDF code.
 - WeasyPrint misplaces column-flex items in RTL: use block layout for centered page content.
 - Fonts are not committed (downloaded by `make fonts`); PDFs fall back to DejaVu Sans / system Noto.

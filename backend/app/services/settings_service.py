@@ -19,6 +19,7 @@ DEFAULTS: dict[str, Any] = {
     "cost_ceiling_usd": 0.0,    # 0 = no ceiling
     "max_redo": 2,
     "vision_qa": True,
+    "manual_mode": None,        # None = auto (manual when no API key and mock images), True/False = forced
 }
 
 
@@ -56,6 +57,9 @@ def _validate(key: str, value: Any) -> Any:
             raise ValueError(f"image_provider must be one of {IMAGE_PROVIDERS}")
     elif key == "vision_qa":
         value = bool(value)
+    elif key == "manual_mode":
+        if value is not None and not isinstance(value, bool):
+            raise ValueError("manual_mode must be true, false or null (auto)")
     return value
 
 

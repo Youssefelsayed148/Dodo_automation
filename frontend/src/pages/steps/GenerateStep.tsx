@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { isActive } from "../../api/types";
 import { ErrorBox, JobProgress, Tag } from "../../components/ui";
 import type { StepProps } from "../WizardPage";
 
@@ -13,7 +14,7 @@ export default function GenerateStep({ book, onNext }: StepProps) {
     queryFn: () => api.generationStatus(book.id),
     refetchInterval: (q) => {
       const s = q.state.data?.job?.status;
-      return s === "queued" || s === "running" ? 1200 : false;
+      return s === "waiting" ? 2000 : isActive(s) ? 1200 : false;
     },
   });
   const cost = useQuery({ queryKey: ["cost", book.id], queryFn: () => api.cost(book.id), refetchInterval: status.data?.job?.status === "running" ? 3000 : false });
@@ -26,7 +27,8 @@ export default function GenerateStep({ book, onNext }: StepProps) {
   const cancel = useMutation({ mutationFn: () => api.cancelGeneration(book.id), onSuccess: refresh });
   const resume = useMutation({ mutationFn: (id: number) => api.retryJob(id), onSuccess: refresh });
   const job = status.data?.job;
-  const running = job?.status === "queued" || job?.status === "running";
+  const running = isActive(job?.status);
+  const waiting = job?.status === "waiting";
   const counts = status.data?.counts ?? {};
   const total = status.data?.total ?? 0;
   const done = (counts.generated ?? 0) + (counts.approved ?? 0) + (counts.failed ?? 0) + (counts.rejected ?? 0);
@@ -80,10 +82,11 @@ export default function GenerateStep({ book, onNext }: StepProps) {
             </button>
           )}
         </div>
+        {waiting && <div className="alert warn">{t("generate.waiting_chatgpt")}</div>}
         {job?.status === "cancelled" && job.message && <div className="alert warn">{job.message}</div>}
         <div className="muted small">{t("generate.background_note")}</div>
       </div>
-      {job && running && <JobProgress job={job} label={t("generate.job_label")} />}
+      {job && running && !waiting && <JobProgress job={job} label={t("generate.job_label")} />}
       {job?.status === "failed" && <JobProgress job={job} />}
     </div>
   );

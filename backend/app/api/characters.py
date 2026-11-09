@@ -32,6 +32,14 @@ class StyleIn(BaseModel):
     rules: str | None = None
 
 
+class VerdictIn(BaseModel):
+    asset_id: int
+    pass_: bool = Field(alias="pass")
+    issues: list[str] = []
+
+    model_config = {"populate_by_name": True}
+
+
 @router.get("/books/{book_id}/characters")
 def list_chars(book: Book = Depends(get_book), db: Session = Depends(get_db)):
     chars = db.query(Character).filter(Character.book_id == book.id).order_by(Character.id).all()
@@ -117,6 +125,17 @@ def consistency(character_id: int, book: Book = Depends(get_book), db: Session =
     if not any(a.kind == "sheet" for a in c.assets):
         raise HTTPException(409, "generate the character sheet first")
     return _job(db, book, character_id, "character_consistency")
+
+
+@router.post("/books/{book_id}/characters/{character_id}/consistency/verdict")
+def consistency_verdict(character_id: int, body: VerdictIn, book: Book = Depends(get_book), db: Session = Depends(get_db)):
+    """Manual mode: the user marks a test scene pass/fail."""
+    c = get_character(book, character_id, db)
+    try:
+        cs.set_consistency_verdict(db, c, body.asset_id, body.pass_, body.issues)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    return ser.character(c)
 
 
 @router.post("/books/{book_id}/characters/{character_id}/approve")

@@ -28,6 +28,7 @@ def isolated_env(tmp_path, monkeypatch):
     monkeypatch.setenv("IMAGE_PROVIDER", "mock")
     monkeypatch.setenv("TEXT_PROVIDER", "mock")
     monkeypatch.setenv("VISION_PROVIDER", "mock")
+    monkeypatch.setenv("MANUAL_MODE", "0")  # existing tests use the mock providers; manual tests switch it on
     for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "COST_TABLE"):
         monkeypatch.delenv(k, raising=False)
     from app.config import reset_settings_cache

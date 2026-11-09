@@ -56,7 +56,8 @@
     "rejected": "مرفوضة",
     "running": "قيد التشغيل",
     "done": "اكتمل",
-    "cancelled": "متوقف"
+    "cancelled": "متوقف",
+    "waiting": "بانتظارك"
   },
   "jobs": {
     "analyze_source": "تحليل الكتاب",
@@ -278,7 +279,8 @@
       "three-quarter": "ثلاثة أرباع",
       "happy": "سعيد",
       "sleepy": "نعسان",
-      "surprised": "مندهش"
+      "surprised": "مندهش",
+      "combined": "لوحة مجمّعة"
     },
     "consistency": "اختبار الثبات",
     "run_test": "شغّل الاختبار",
@@ -296,7 +298,11 @@
     "sample_blocked": "اعتمد كل الشخصيات أولًا.",
     "sample_make": "ارسم الصفحة التجريبية",
     "sample_again": "جرّب أخرى",
-    "sample_approve": "اعتمد الصفحة التجريبية"
+    "sample_approve": "اعتمد الصفحة التجريبية",
+    "manual_verdict_help": "قارن كل مشهد اختبار بلوحة الشخصية وحدّد حكمك. الاعتماد يتطلب أن تكون كل المشاهد صحيحة (أو تجاوزًا).",
+    "mark_pass": "صحيح",
+    "mark_fail": "غير صحيح",
+    "verdict_open": "لم يُحكم عليه بعد"
   },
   "specs": {
     "page_count": "إجمالي الصفحات",
@@ -336,7 +342,8 @@
     "resume": "استئناف",
     "to_review": "انتقل إلى المراجعة",
     "background_note": "يمكنك إغلاق المتصفح، فالإنشاء يستمر ويُستأنف بعد إعادة التشغيل.",
-    "job_label": "إنشاء الصفحات"
+    "job_label": "إنشاء الصفحات",
+    "waiting_chatgpt": "بانتظار صورك من ChatGPT – راجع مهام ChatGPT في الأعلى. يستمر الإنشاء تلقائيًا بعد كل دفعة."
   },
   "review": {
     "failed_banner": "لم تجتز {{count}} صفحة الفحص التلقائي. تُعرض أولًا.",
@@ -442,7 +449,14 @@
     "drive_connected": "متصل",
     "drive_disconnected": "غير متصل",
     "drive_connect": "اربط حساب Google",
-    "drive_disconnect": "قطع الاتصال"
+    "drive_disconnect": "قطع الاتصال",
+    "manual_title": "الوضع اليدوي (ChatGPT)",
+    "manual_help": "بدون مفاتيح API مدفوعة تصبح كل خطوة ذكاء اصطناعي مهمة في ChatGPT: انسخ الطلب، شغّله في ChatGPT، ثم الصق الإجابة أو ارفع الصورة. كل ما عدا ذلك (الألغاز، التنظيف، فحص الجودة، ملفات PDF، Drive) يبقى تلقائيًا.",
+    "manual_auto": "تلقائي (يعمل عند عدم وجود مفتاح API ولا مزوّد صور)",
+    "manual_on": "مفعّل – استخدم ChatGPT",
+    "manual_off": "متوقف – استخدم API أو المزوّدات التجريبية",
+    "manual_active": "الوضع اليدوي مفعّل",
+    "manual_inactive": "الوضع اليدوي متوقف"
   },
   "compare": {
     "title": "مقارنة نماذج الصور",
@@ -467,6 +481,65 @@
     "score": {
       "clean_outlines": "الخطوط",
       "matches_sheet": "الورقة"
+    }
+  },
+  "manual": {
+    "badge": "وضع ChatGPT",
+    "panel_title": "دورك في ChatGPT",
+    "panel_help": "انسخ الطلب وشغّله في ChatGPT، ثم الصق الإجابة أو أفلت الصورة هنا. يستمر الكتاب تلقائيًا بعد آخر إجابة.",
+    "open_count": "{{count}} مفتوحة",
+    "open_chatgpt": "افتح ChatGPT",
+    "copy_prompt": "انسخ الطلب",
+    "copy_all": "انسخ كل الطلبات (رسالة واحدة)",
+    "copy_all_help": "يرسم ChatGPT صورة واحدة في كل رد: اكتب “next” بعد كل صورة.",
+    "show_prompt": "اعرض الطلب",
+    "text_steps": "١. انسخ الطلب · ٢. الصقه في ChatGPT · ٣. الصق رد ChatGPT كاملًا في الأسفل",
+    "image_steps": "١. انسخ طلبًا (أو كل الطلبات) · ٢. دع ChatGPT يرسم · ٣. أفلت أو الصق أو ارفع كل صورة",
+    "answer_placeholder": "الصق رد ChatGPT هنا (JSON)…",
+    "submit": "أرسل الإجابة",
+    "invalid": "لا يمكن استخدام هذه الإجابة بعد:",
+    "copy_fix": "انسخ رسالة التصحيح لـ ChatGPT",
+    "fix_help": "الصقها في محادثة ChatGPT نفسها، ثم الصق الرد الجديد هنا.",
+    "attach_refs": "أرفق هذه الصور برسالتك في ChatGPT:",
+    "download": "تنزيل",
+    "reference": "مرجع {{n}}",
+    "drop_here": "أفلت الصورة أو الصقها (Ctrl+V) أو انقر لرفعها",
+    "uploading": "جارٍ الرفع…",
+    "skip": "تخطَّ",
+    "bulk_upload": "ارفع عدة صور",
+    "bulk_help": "الملفات المسماة مثل page_12.png تذهب إلى الصفحة 12؛ وبقية الملفات تملأ الخانات المفتوحة بالترتيب.",
+    "bulk_result": "تمت مطابقة {{matched}} صورة، ولم تُستخدم {{unmatched}}",
+    "image_n": "الصورة {{label}}",
+    "page_n": "الصفحة {{label}}",
+    "left": "متبقٍ {{count}}",
+    "setup_open": "إعداد ChatGPT",
+    "setup_title": "إعداد ChatGPT لهذا الكتاب",
+    "setup_help": "استخدم مشروع ChatGPT واحدًا لكل كتاب: تعليماته وصوره المرجعية تحافظ على الأسلوب والشخصيات في كل محادثة.",
+    "setup_step1": "في ChatGPT أنشئ مشروعًا جديدًا باسم:",
+    "setup_step2": "الصق هذه التعليمات في تعليمات المشروع:",
+    "setup_step3": "ارفع هذه الصور المرجعية إلى ملفات المشروع:",
+    "setup_step4": "شغّل كل مهمة في محادثة داخل هذا المشروع. حدّث التعليمات بعد اعتماد الشخصيات.",
+    "copy_name": "انسخ الاسم",
+    "copy_instructions": "انسخ التعليمات",
+    "no_refs": "تظهر الصور المرجعية هنا بعد اختيار الشخصيات.",
+    "ref_kinds": {
+      "style": "مرجع الأسلوب",
+      "sheet": "لوحة الشخصية: {{name}}",
+      "character": "الشخصية: {{name}}"
+    },
+    "tasks": {
+      "analyze_source": "حلّل الكتاب الذي أعجبك",
+      "propose_themes": "اقترح 3 مواضيع",
+      "propose_formats": "اقترح صيغ الكتاب",
+      "character_brief": "اكتب وصف الشخصيات",
+      "plan_pages": "خطّط كل الصفحات",
+      "candidate": "خيارات الشخصية: {{name}}",
+      "character_edit": "الشخصية بعد التعديل: {{name}}",
+      "sheet": "لوحة الشخصية: {{name}}",
+      "test_scene": "اختبار الثبات: {{name}}",
+      "sample": "صفحة تجريبية",
+      "page": "صفحات الكتاب",
+      "cover": "رسم الغلاف (اختياري)"
     }
   }
 }

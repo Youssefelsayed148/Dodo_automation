@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -17,7 +17,8 @@ def utcnow() -> datetime:
 
 BOOK_STATUSES = ("draft", "analyzed", "themed", "characters", "specced", "generating", "review", "exported")
 PAGE_STATUSES = ("planned", "queued", "generated", "failed", "approved", "rejected")
-JOB_STATUSES = ("queued", "running", "done", "failed", "cancelled")
+JOB_STATUSES = ("queued", "running", "waiting", "done", "failed", "cancelled")  # waiting = for the user (manual mode)
+MANUAL_TASK_STATUSES = ("pending", "done", "skipped")
 
 
 class Book(Base):
@@ -169,6 +170,32 @@ class UsageLog(Base):
     page_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     purpose: Mapped[str] = mapped_column(String(60), default="")
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ManualTask(Base):
+    """One "ChatGPT task" in manual mode: a prompt the user runs in ChatGPT and
+    answers with JSON (kind=text) or an image (kind=image). `key` is a
+    deterministic hash so a re-run job finds its answers instead of asking twice."""
+
+    __tablename__ = "manual_tasks"
+    __table_args__ = (UniqueConstraint("book_id", "key", name="uq_manual_task_book_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    book_id: Mapped[int] = mapped_column(ForeignKey("books.id", ondelete="CASCADE"), index=True)
+    job_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    kind: Mapped[str] = mapped_column(String(10))  # text|image
+    task: Mapped[str] = mapped_column(String(60))  # e.g. propose_themes, page, candidate
+    key: Mapped[str] = mapped_column(String(64))
+    group: Mapped[str] = mapped_column("task_group", String(200), default="")
+    title: Mapped[str] = mapped_column(String(300), default="")
+    prompt: Mapped[str] = mapped_column(Text, default="")
+    # meta: model (schema name), expected_count, refs, size, page_id, label, skippable, vars
+    meta: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    answer_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    answer_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Setting(Base):

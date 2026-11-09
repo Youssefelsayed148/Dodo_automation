@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Book, Character } from "../../api/types";
+import { ChatGptSetupCard, useManualMode } from "../../components/ManualTasks";
 import { Empty, ErrorBox, Img, JobProgress, Modal, StatusTag, Tag } from "../../components/ui";
 import { useJob, useStepJob } from "../../hooks/useJob";
 import type { StepProps } from "../WizardPage";
@@ -22,10 +23,24 @@ export default function CharactersStep({ book }: StepProps) {
   const create = useMutation({ mutationFn: () => api.briefs(book.id, count), onSuccess: (j) => setBriefJob(j.id) });
   const chars = data.data?.characters ?? [];
   const gates = data.data?.gates;
+  const manual = useManualMode();
+  const [setupOpen, setSetupOpen] = useState(false);
 
   return (
     <div className="stack">
       <ErrorBox error={data.error || create.error} />
+      {manual && (
+        <div className="card">
+          <div className="row">
+            <strong>{t("manual.setup_title")}</strong>
+            <span className="spacer" />
+            <button className="btn small" onClick={() => setSetupOpen(!setupOpen)}>
+              {setupOpen ? t("common.hide") : t("manual.setup_open")}
+            </button>
+          </div>
+          {setupOpen && <ChatGptSetupCard book={book} />}
+        </div>
+      )}
       <StyleAnchor book={book} rules={data.data?.style_anchor.rules ?? ""} refUrl={data.data?.style_anchor.reference_url ?? null} />
       {briefJob && briefs.running && <JobProgress job={briefs.job} label={t("characters.creating")} />}
       {chars.length === 0 && !briefs.running && (
@@ -235,6 +250,8 @@ function CharacterCard({ book, c, onChange }: { book: Book; c: Character; onChan
               {cons ? t("characters.rerun_test") : t("characters.run_test")}
             </button>
           </div>
+          {cons?.manual && tests.length > 0 && <p className="small muted">{t("characters.manual_verdict_help")}</p>}
+          {cons?.manual && cons.results.some((r) => r.pass === null) && <Tag kind="warn">{t("characters.verdict_open")}</Tag>}
           {tests.length > 0 && (
             <div className="grid-sm" style={{ marginBlockStart: 8 }}>
               {tests.map((a) => {
@@ -243,9 +260,22 @@ function CharacterCard({ book, c, onChange }: { book: Book; c: Character; onChan
                   <div key={a.id}>
                     <div className={`thumb square ${r && !r.pass ? "rejected" : ""}`} onClick={() => setZoom(a.url)}>
                       <Img src={a.thumb_url} alt={c.name} />
-                      {r && <span className={`badge tag ${r.pass ? "ok" : "bad"}`}>{r.pass ? "✓" : "✕"}</span>}
+                      {r && r.pass !== null && <span className={`badge tag ${r.pass ? "ok" : "bad"}`}>{r.pass ? "✓" : "✕"}</span>}
+                      {r && r.pass === null && <span className="badge tag warn">?</span>}
                     </div>
                     {r && r.issues.length > 0 && <div className="small muted">{r.issues.join("; ")}</div>}
+                    {r && cons?.manual && (
+                      <div className="row" style={{ marginBlockStart: 4, gap: 4 }}>
+                        <button className={`btn small ${r.pass === true ? "primary" : ""}`} aria-pressed={r.pass === true}
+                                onClick={() => act.mutate(() => api.consistencyVerdict(book.id, c.id, a.id, true))}>
+                          ✓ {t("characters.mark_pass")}
+                        </button>
+                        <button className={`btn small ${r.pass === false ? "danger" : ""}`} aria-pressed={r.pass === false}
+                                onClick={() => act.mutate(() => api.consistencyVerdict(book.id, c.id, a.id, false))}>
+                          ✕ {t("characters.mark_fail")}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

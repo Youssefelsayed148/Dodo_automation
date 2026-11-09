@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { api, ApiError, url } from "../api/client";
 import type { Job } from "../api/types";
@@ -93,6 +93,38 @@ export async function copyText(text: string): Promise<boolean> {
     await navigator.clipboard.writeText(text);
     return true;
   } catch {
-    return false;
+    // Fallback for browsers without the async clipboard API (or non-secure origins).
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
   }
+}
+
+export function CopyButton({ text, label, primary, small = true }: { text: string; label?: string; primary?: boolean; small?: boolean }) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className={`btn ${small ? "small" : ""} ${primary ? "primary" : ""}`}
+      onClick={async () => {
+        if (await copyText(text)) {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        }
+      }}
+    >
+      {copied ? t("common.copied") : label ?? t("common.copy")}
+    </button>
+  );
 }

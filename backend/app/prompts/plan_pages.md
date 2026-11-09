@@ -1,4 +1,4 @@
-<!-- prompt: plan_pages v1 -->
+<!-- prompt: plan_pages v2 -->
 Plan the pages of an original children's book.
 
 Theme: {theme}
@@ -13,6 +13,7 @@ For each page return:
 - type: exactly as given in the order above
 - description: ONE line describing what is drawn (subject, action, setting). Every description must be distinct from all others. For code-drawn pages describe the puzzle topic.
 - characters: list of character names that appear (empty if none)
+- prompt: for image pages (single_character, scene, pattern_mandala, hidden_objects_scene) a complete image prompt for this page in English: what is drawn, composition, which characters (by name) do what, simple background, black-and-white coloring line art, no text in the image. Use "" for code-drawn pages.
 - text_content, by type:
   - story_text: {"text": "2-4 short sentences continuing the story"}
   - qa_page: {"question": "...", "choices": ["...", "...", "..."], "answer": index_of_correct_choice} (or omit choices for open answer lines)
