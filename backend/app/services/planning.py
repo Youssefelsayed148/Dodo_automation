@@ -211,9 +211,13 @@ def plan_pages(session: Session, book: Book) -> list[Page]:
         "slots": slots,
         "character_names": [c.name for c in chars],
     }
-    out = structured("plan_pages", variables, PagePlanOut)
+    from .manual import is_manual
+
+    manual = is_manual(session)
+    out = structured("plan_pages", variables, PagePlanOut,
+                     meta={"expected_count": len(slots), "count_field": "pages"})
     planned = [p.model_dump() for p in out.pages]
-    if len(planned) != len(slots):
+    if len(planned) != len(slots) and not manual:  # manual answers are count-checked at submit
         # one more try with an explicit correction, then pad/trim deterministically
         try:
             out = structured("plan_pages", {**variables, "theme": variables["theme"] + f" (IMPORTANT: exactly {len(slots)} pages)"},
@@ -240,10 +244,12 @@ def plan_pages(session: Session, book: Book) -> list[Page]:
         rows.append(Page(book_id=book.id, index=idx, type=t, description=t.replace("_", " "), text_content={}))
         idx += 1
     for p in planned:
+        page_meta = {"characters": [by_name[n.lower()] for n in p.get("characters", []) if n.lower() in by_name],
+                     "character_names": p.get("characters", [])}
+        if is_image_type(p["type"]) and (p.get("prompt") or "").strip():
+            page_meta["scene_prompt"] = p["prompt"].strip()
         rows.append(Page(book_id=book.id, index=idx, type=p["type"], description=p["description"].strip(),
-                         text_content=p.get("text_content") or {},
-                         meta={"characters": [by_name[n.lower()] for n in p.get("characters", []) if n.lower() in by_name],
-                               "character_names": p.get("characters", [])}))
+                         text_content=p.get("text_content") or {}, meta=page_meta))
         idx += 1
     for t in back:
         rows.append(Page(book_id=book.id, index=idx, type=t, description=t.replace("_", " "), text_content={}))

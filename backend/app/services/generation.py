@@ -4,6 +4,12 @@ Image pages: prompt (style anchor + characters + scene) -> image provider ->
 programmatic QA -> vision QA -> cleanup -> PNG. Failed QA appends the issues
 to the prompt and retries up to `max_redo` times, then marks the page failed.
 Code pages are rendered without the image model.
+
+Manual mode (ChatGPT): code pages are rendered first, then image pages are
+registered as ChatGPT tasks one batch at a time (batch size setting). Each
+uploaded image goes through programmatic QA and cleanup; there is no vision
+QA and no automatic redo - failing pages are marked failed and shown first in
+Review, where a redo creates new tasks with the issues appended.
 """
 
 from __future__ import annotations
@@ -22,7 +28,7 @@ from ..providers.base import usage_context
 from ..providers.registry import get_image_provider
 from ..schemas import ImagePromptOut, QAContentOut, VisionVerdict, is_image_type
 from . import qa_checks, settings_service, storage
-from .characters import describe, sheet_images, style_anchor
+from .characters import describe, sheet_images, sheet_ref_paths, style_anchor, style_ref_paths
 from .cleanup import clean_line_art, make_thumbnail, save_print_png
 from .llm import structured
 from .specs import page_spec
@@ -61,6 +67,30 @@ def build_image_prompt(book: Book, page_type: str, description: str, chars: list
     if issues:
         prompt += "\nAvoid these problems from the previous attempt: " + "; ".join(issues)
     return prompt
+
+
+MANUAL_IMAGE_RULES = (
+    "Rules: pure white background; clean, closed, bold black outlines; no grey, no shading, no gradients and no filled "
+    "black areas; leave a white margin around the drawing (nothing touches the edges); absolutely NO text, letters, "
+    "numbers or signs anywhere in the image."
+)
+
+
+def manual_page_prompt(book: Book, page_type: str, description: str, chars: list[Character], issues: list[str],
+                       note: str | None = None) -> str:
+    """Page prompt for ChatGPT, built by code (no LLM)."""
+    rules, _ = style_anchor(book)
+    lines = ["Create ONE image: a black-and-white coloring book page in portrait (tall) format - choose the tall image size.",
+             f"Scene: {description.strip()}" + (f" ({PAGE_TYPE_HINTS[page_type]})" if page_type in PAGE_TYPE_HINTS else "")]
+    if chars:
+        lines.append("Characters - draw them exactly like the attached reference images:")
+        lines += [f"- {describe(c)}" for c in chars]
+    lines += [f"Style: {rules}", MANUAL_IMAGE_RULES]
+    if note:
+        lines.append(f"Requested change: {note}")
+    if issues:
+        lines.append("Avoid these problems from the previous attempt: " + "; ".join(issues))
+    return "\n".join(lines)
 
 
 def page_characters(session: Session, page: Page) -> list[Character]:
@@ -214,11 +244,112 @@ def ensure_ready(session: Session, book: Book) -> None:
             raise GateError("approve the sample page before generating")
 
 
+def manual_page_request(session: Session, book: Book, page: Page, image_order: dict[int, int], batch_size: int):
+    from .manual import ImageReq
+
+    chars = page_characters(session, page)
+    meta = page.meta or {}
+    scene = meta.get("scene_prompt") or page.description
+    prompt = manual_page_prompt(book, page.type, scene, chars, list(meta.get("redo_issues") or []), meta.get("note"))
+    refs = (style_ref_paths(book) + [p for c in chars for p in sheet_ref_paths(c, 1)])[:4]
+    return ImageReq(prompt, label=str(page.index), refs=refs, size=image_size_hint(book),
+                    seed=page.index * 100 + (page.attempts or 0),
+                    meta={"page_id": page.id, "page_index": page.index, "page_type": page.type,
+                          "batch_no": image_order.get(page.id, 0) // batch_size + 1})
+
+
+def apply_manual_image(session: Session, book: Book, page: Page, data: bytes | None, prompt: str, batch_no: int) -> str:
+    """Store one ChatGPT image for a page: programmatic QA -> cleanup. No redo."""
+    page.batch_no = batch_no
+    page.attempts = (page.attempts or 0) + 1  # also on skip, so a redo asks again
+    page.prompt = prompt
+    meta = dict(page.meta or {})
+    if data is None:
+        page.status = "failed"
+        page.qa = {"pass": False, "manual": True, "skipped": True, "issues": ["skipped in ChatGPT"]}
+        page.meta = meta
+        return "failed"
+    try:
+        prog = qa_checks.analyze(data)
+        page.image_path = _save_outputs(book, page, clean_line_art(data, page_spec(book.trim_size, book.bleed)))
+    except Exception as e:  # noqa: BLE001 - a broken upload fails only this page
+        log.exception("manual image for page %s could not be processed", page.id)
+        page.status = "failed"
+        page.qa = {"pass": False, "manual": True, "issues": [f"image could not be processed: {e}"]}
+        return "failed"
+    if prog["pass"]:
+        page.status = "generated"
+        page.qa = {"pass": True, "manual": True, "metrics": prog["metrics"], "warnings": prog["warnings"]}
+        meta.pop("redo_issues", None)
+    else:
+        page.status = "failed"
+        page.qa = {"pass": False, "manual": True, "issues": prog["issues"], "metrics": prog["metrics"]}
+        meta["redo_issues"] = prog["issues"]
+    page.meta = meta
+    return page.status
+
+
+def run_generation_manual(book_id: int, ctx) -> dict[str, Any]:
+    """Manual mode job body. Re-run from the start after every answered batch:
+    finished pages are no longer `queued`, so only the next batch is asked for."""
+    from .manual import image_batch
+
+    with SessionLocal() as s:
+        book = s.get(Book, book_id)
+        batch_size = int(settings_service.get(s, "batch_size") or 10)
+        page_ids = ctx.payload.get("page_ids")
+        q = select(Page).where(Page.book_id == book_id, Page.status == "queued").order_by(Page.index)
+        pages = [p for p in s.scalars(q).all() if not page_ids or p.id in page_ids]
+        book.status = "generating"
+        s.commit()
+        code_ids = [p.id for p in pages if not is_image_type(p.type)]
+        image_ids = [p.id for p in pages if is_image_type(p.type)]
+        all_images = [p.id for p in sorted(book.pages, key=lambda p: p.index) if is_image_type(p.type)]
+        image_order = {pid: i for i, pid in enumerate(all_images)}
+    total = len(code_ids) + len(image_ids)
+    counts = {"generated": 0, "failed": 0}
+    done = 0
+    for pid in code_ids:  # free, no ChatGPT needed
+        ctx.check_cancel()
+        status = generate_one(pid, 0, False)
+        done += 1
+        if status in counts:
+            counts[status] += 1
+        ctx.progress(done / max(total, 1), f"code pages: {done}/{len(code_ids)}", **counts)
+    batches = [image_ids[i:i + batch_size] for i in range(0, len(image_ids), batch_size)]
+    for batch in batches:
+        ctx.check_cancel()
+        with SessionLocal() as s:
+            book = s.get(Book, book_id)
+            rows = [s.get(Page, pid) for pid in batch]
+            reqs = [manual_page_request(s, book, p, image_order, batch_size) for p in rows]
+            first, last = rows[0].index, rows[-1].index
+            ctx.progress(done / max(total, 1), f"pages {first}-{last}", **counts)
+            images = image_batch(book_id, "page", reqs, group=f"pages:{first}-{last}", stable=True)
+            for p, req, data in zip(rows, reqs, images):
+                status = apply_manual_image(s, book, p, data, req.prompt, req.meta["batch_no"])
+                done += 1
+                counts[status] = counts.get(status, 0) + 1
+            s.commit()
+        ctx.progress(done / max(total, 1), f"pages {first}-{last} done", **counts)
+    with SessionLocal() as s:
+        book = s.get(Book, book_id)
+        remaining = s.scalar(select(Page.id).where(Page.book_id == book_id, Page.status.in_(("queued", "planned"))).limit(1))
+        if remaining is None:
+            book.status = "review"
+        s.commit()
+    return {**counts, "total": total, "manual": True}
+
+
 def run_generation(book_id: int, ctx) -> dict[str, Any]:
     """Job body: process queued pages of a book in batches. Resumable: only
     `queued` pages are processed, so a restart continues where it stopped."""
     from ..jobs.runner import JobStopped
+    from .manual import is_manual
     from .usage import book_cost
+
+    if is_manual():
+        return run_generation_manual(book_id, ctx)
 
     with SessionLocal() as s:
         book = s.get(Book, book_id)

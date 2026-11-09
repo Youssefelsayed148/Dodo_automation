@@ -13,6 +13,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from ..jobs.runner import AwaitingManual
 from ..models import Book, Recipe
 from ..schemas import CONTENT_PAGE_TYPES, RecipeOut
 from . import storage
@@ -86,13 +87,19 @@ def analyze_book(session: Session, book: Book, progress=lambda p, m=None: None) 
         progress(0.1, "fetching store page")
         fetch = fetch_source(book)
         meta["fetch"] = fetch
+        from .manual import is_manual
+
+        if is_manual(session):
+            # Saved now so that the resumed job does not fetch (and change the prompt) again.
+            book.meta = {**(book.meta or {}), "fetch": fetch}
+            session.commit()
     src = storage.source_dir(book.id)
+    keep_sources = False
     try:
-        images: list[bytes] = []
         uploads = sorted(src.glob("upload_*"))
         fetched = sorted(src.glob("fetched_*"))
-        for p in (uploads + fetched)[:15]:
-            images.append(p.read_bytes())
+        image_paths = (uploads + fetched)[:15]
+        images: list[bytes] = [p.read_bytes() for p in image_paths]
         text_parts = []
         if fetch.get("status") in ("ok", "thin"):
             text_parts.append("\n".join(x for x in (fetch.get("title"), fetch.get("description")) if x))
@@ -110,6 +117,8 @@ def analyze_book(session: Session, book: Book, progress=lambda p, m=None: None) 
              "expected_confidence": conf, "page_types": ", ".join(CONTENT_PAGE_TYPES)},
             RecipeOut,
             images=images or None,
+            # manual mode: the user downloads these pictures and attaches them in ChatGPT
+            meta={"refs": [storage.rel(p) for p in image_paths]},
         )
         terms = banned_terms(list(fetch.get("brand_terms") or []) + [fetch.get("title") or ""])
         mix = [m for m in out.page_mix if m.type in CONTENT_PAGE_TYPES]
@@ -135,8 +144,12 @@ def analyze_book(session: Session, book: Book, progress=lambda p, m=None: None) 
             book.status = "analyzed"
         session.commit()
         return recipe
+    except AwaitingManual:
+        keep_sources = True  # still needed until the user answers the ChatGPT task
+        raise
     finally:
-        cleanup_source_images(book.id)
+        if not keep_sources:
+            cleanup_source_images(book.id)
 
 
 def cleanup_source_images(book_id: int) -> int:
