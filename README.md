@@ -42,11 +42,29 @@ The database (`data/app.db`) is created and migrated automatically on start (Ale
 | `DATABASE_URL`, `DATA_DIR` | SQLite file and data folder (default `data/`). |
 | `HOST`, `PORT`, `CORS_ORIGINS` | Backend binding (keep `127.0.0.1` in v1). |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Drive export (optional). |
+| `MANUAL_MODE` | `1` = manual mode with ChatGPT, `0` = API/mock providers, empty = auto (manual when there is no `ANTHROPIC_API_KEY` and `IMAGE_PROVIDER=mock`). Settings can override it. |
 | `VITE_API_BASE` | Frontend → backend base URL (empty = same origin via the Vite proxy). |
+
+## Manual mode with ChatGPT (no paid API)
+
+With a ChatGPT subscription and no API keys you can still make a whole book: the app does everything that is free (store page fetch, page planning logic, puzzles and text pages, cleanup, quality checks, PDFs, Drive), and every step that needs an AI model becomes a **ChatGPT task** that you run in ChatGPT and hand back.
+
+Manual mode is on automatically when `ANTHROPIC_API_KEY` is empty and `IMAGE_PROVIDER=mock`; force it with `MANUAL_MODE=1|0` or in **Settings → Manual mode (ChatGPT)**.
+
+**The cycle (for every step):**
+
+1. Click the step's button as usual (e.g. *Propose themes*). The job pauses with the status **Waiting for you** and a **Your turn in ChatGPT** panel appears at the top of the step.
+2. **Text task** (analysis, themes, formats, character briefs, page plan): click **Copy prompt**, paste it into ChatGPT, copy ChatGPT's whole reply and paste it into the answer box → **Submit answer**. The reply is validated; if something is wrong you see readable errors and a **Copy fix message** button – paste that into the same chat and submit the new reply.
+3. **Image task** (character options, edits, sheet, test scenes, sample page, book pages, cover): **Copy prompt** (or **Copy all prompts** for a batch – ChatGPT makes one image per reply, write “next” after each), download the reference pictures shown on the card and attach them in ChatGPT, then drop the image on the card, paste it with **Ctrl+V**, or click to upload. For a batch, **Upload several images** matches files named `page_12.png` to page 12 and fills the rest in order. Optional images (a 4th character option, a test scene, a page, the cover) can be **skipped**.
+4. After the last answer the job **continues by itself** and the step updates.
+
+**Fewest round trips:** one text task per planning step; character options come as one batch of up to 4; lock-and-edit needs no text round trip (the prompt is a template); the character sheet is **one combined image** (3 views + 3 expressions); you judge the 3 consistency test scenes yourself with **Looks right / Not right**; the page plan already contains every page's image prompt; code-drawn pages (mazes, word search, dot-to-dot, story, Q&A, title, end) need no ChatGPT at all; image pages arrive one batch at a time (batch size 5 or 10 in Settings). There is no vision QA and no automatic redo in manual mode: the free programmatic checks still run, failing pages are shown first in Review, and **Redo** creates new tasks with your note and the problems appended.
+
+**Set up ChatGPT once per book (recommended):** the **Set up ChatGPT** button (tasks panel and Characters step) gives you a project name, copyable **project instructions** (style formula, theme, characters, line-art, originality and no-text rules, answer conventions) and the **reference images** to upload (style reference and each character's sheet). Create one ChatGPT Project per book with these and run all tasks in chats inside it, so style and characters stay consistent. Update the instructions after you approve the characters.
 
 ## Running with the mock provider (no keys, no cost)
 
-Leave all keys empty. The mock image provider draws placeholder line art and the mock LLMs return schema-valid canned JSON, so the whole wizard – including PDFs – works offline. This is also what the test suite and CI use.
+Leave all keys empty and set `MANUAL_MODE=0` (otherwise the app starts in manual mode). The mock image provider draws placeholder line art and the mock LLMs return schema-valid canned JSON, so the whole wizard – including PDFs – works offline. This is also what the test suite and CI use.
 
 ## Choosing the image model: comparison harness
 
