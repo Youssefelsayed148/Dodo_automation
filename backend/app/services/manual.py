@@ -388,7 +388,7 @@ def recent_tasks(session: Session, book_id: int, limit: int = 12) -> list[Manual
                                 .order_by(ManualTask.answered_at.desc(), ManualTask.id.desc()).limit(limit)).all())
 
 
-_PAGE_NO = re.compile(r"(?:page|pg|p|img|image)[\s_\-#]*(\d{1,4})(?!\d)", re.I)
+_PAGE_NO = re.compile(r"(?<![a-z])(?:page|pg|p|img|image)[\s_\-#]*(\d{1,4})(?!\d)", re.I)
 
 
 def number_in_filename(name: str) -> str | None:
