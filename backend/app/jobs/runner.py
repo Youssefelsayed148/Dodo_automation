@@ -5,11 +5,15 @@
 - Handlers get a JobContext to report progress and check for cancellation.
 - On startup, jobs left `running` by a crash/restart go back to `queued`, so
   work resumes. Handlers are written to be idempotent (skip finished work).
+- Manual mode: a handler that needs the user (a ChatGPT task) raises
+  `AwaitingManual`; the job becomes `waiting` and is re-queued (and re-run from
+  the start) once all its tasks are answered or skipped.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import threading
 import traceback
@@ -20,7 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
-from ..models import Job, utcnow
+from ..models import Job, ManualTask, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +40,19 @@ class JobCancelled(Exception):
 class JobStopped(Exception):
     """Handler stopped on purpose (e.g. cost ceiling). Job ends `cancelled`
     with a message and can be resumed by retrying."""
+
+
+class AwaitingManual(Exception):
+    """Manual mode: the job needs answers to ChatGPT tasks (ids) first."""
+
+    def __init__(self, task_ids: list[int]):
+        super().__init__(f"waiting for {len(task_ids)} ChatGPT task(s)")
+        self.task_ids = list(task_ids)
+
+
+ACTIVE_STATUSES = ("queued", "running", "waiting")
+# (job_id, book_id) of the job running in this thread; used to tag ChatGPT tasks.
+current_job: contextvars.ContextVar[tuple[int, int | None] | None] = contextvars.ContextVar("current_job", default=None)
 
 
 def handler(job_type: str) -> Callable[[Handler], Handler]:
@@ -99,7 +116,7 @@ def enqueue(session: Session, job_type: str, payload: dict[str, Any] | None = No
 
 def active_job(session: Session, book_id: int, job_type: str) -> Job | None:
     return session.scalar(
-        select(Job).where(Job.book_id == book_id, Job.type == job_type, Job.status.in_(("queued", "running")))
+        select(Job).where(Job.book_id == book_id, Job.type == job_type, Job.status.in_(ACTIVE_STATUSES))
         .order_by(Job.id.desc())
     )
 
@@ -122,7 +139,7 @@ def cancel(session: Session, job_id: int) -> Job:
     job = session.get(Job, job_id)
     if job is None:
         raise KeyError(job_id)
-    if job.status in ("queued", "running"):
+    if job.status in ACTIVE_STATUSES:
         job.status = "cancelled"
         job.message = "cancelled by user"
         session.commit()
@@ -165,8 +182,11 @@ def run_job(job_id: int) -> str:
     if fn is None:
         _finish(job_id, "failed", error=f"no handler for job type '{ctx.type}'")
         return "failed"
+    token = current_job.set((ctx.job_id, ctx.book_id))
     try:
         result = fn(ctx) or {}
+    except AwaitingManual as e:
+        return _wait(job_id, e.task_ids)
     except JobCancelled:
         _finish(job_id, "cancelled", message="cancelled")
         return "cancelled"
@@ -177,6 +197,8 @@ def run_job(job_id: int) -> str:
         log.error("job %s (%s) failed: %s\n%s", job_id, ctx.type, e, traceback.format_exc())
         _finish(job_id, "failed", error=f"{type(e).__name__}: {e}")
         return "failed"
+    finally:
+        current_job.reset(token)
     if ctx.is_cancelled():
         return "cancelled"
     _finish(job_id, "done", result=result, progress=1.0, message="done")
@@ -201,6 +223,39 @@ def _finish(job_id: int, status: str, *, error: str | None = None, result: dict 
         if message is not None:
             job.message = message
         s.commit()
+
+
+def _wait(job_id: int, task_ids: list[int]) -> str:
+    """Park a job until the user answers its ChatGPT tasks. If they were all
+    answered in the meantime, queue it again right away."""
+    with _claim_lock, SessionLocal() as s:
+        job = s.get(Job, job_id)
+        if job is None:
+            return "missing"
+        if job.status == "cancelled":
+            return "cancelled"
+        job.status = "waiting"
+        job.message = f"Waiting for ChatGPT: {len(task_ids)} task(s)"
+        job.result = {**(job.result or {}), "waiting_tasks": task_ids}
+        s.commit()
+    return "queued" if resume_if_ready(job_id) else "waiting"
+
+
+def resume_if_ready(job_id: int | None) -> bool:
+    """Re-queue a waiting job when none of its ChatGPT tasks is pending."""
+    if job_id is None:
+        return False
+    with _claim_lock, SessionLocal() as s:
+        job = s.get(Job, job_id)
+        if job is None or job.status != "waiting":
+            return False
+        pending = s.scalar(select(ManualTask.id).where(ManualTask.job_id == job_id, ManualTask.status == "pending").limit(1))
+        if pending is not None:
+            return False
+        job.status = "queued"
+        job.message = "answers received, continuing"
+        s.commit()
+        return True
 
 
 def run_pending_sync(max_jobs: int = 1000) -> int:
