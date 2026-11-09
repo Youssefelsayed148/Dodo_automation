@@ -53,10 +53,14 @@ def _get_task(db: Session, task_id: int) -> ManualTask:
 @router.get("/books/{book_id}/manual")
 def list_tasks(book: Book = Depends(get_book), db: Session = Depends(get_db)):
     jobs = {j.id: j for j in db.scalars(select(Job).where(Job.book_id == book.id, Job.status.in_(ACTIVE_STATUSES))).all()}
+    open_tasks = manual.open_tasks(db, book.id)
+    groups = [{**g, "job_type": jobs[g["job_id"]].type if g["job_id"] in jobs else None,
+               "tasks": [task_out(t, jobs) for t in g["tasks"]]} for g in manual.group_tasks(open_tasks)]
     return {
         "manual_mode": manual.is_manual(db),
         "chatgpt_url": manual.CHATGPT_URL,
-        "pending": [task_out(t, jobs) for t in manual.open_tasks(db, book.id)],
+        "groups": groups,
+        "pending": [task_out(t, jobs) for t in open_tasks],
         "recent": [task_out(t, jobs) for t in manual.recent_tasks(db, book.id)],
         "active_jobs": [ser.job(j) for j in jobs.values()],
     }

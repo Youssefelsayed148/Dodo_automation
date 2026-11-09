@@ -146,6 +146,9 @@ def test_full_manual_book_end_to_end(client, manual_on):
     run_jobs()
     cand_tasks = pending(client, bid)
     assert len(cand_tasks) == 4 and all(x["kind"] == "image" and x["skippable"] for x in cand_tasks)
+    [group] = client.get(f"/api/books/{bid}/manual").json()["groups"]
+    assert len(group["tasks"]) == 4 and group["job_type"] == "character_candidates"
+    assert "ONE AT A TIME" in group["all_prompts"] and "### Image 4 of 4" in group["all_prompts"]
     finish(client, job, skip=lambda x: x["label"] == "4")
     cands = [a for a in char(client, bid, cid)["assets"] if a["kind"] == "candidate"]
     assert len(cands) == 3  # the skipped candidate was not created

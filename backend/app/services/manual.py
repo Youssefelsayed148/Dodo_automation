@@ -383,6 +383,31 @@ def open_tasks(session: Session, book_id: int, kind: str | None = None) -> list[
     return [t for t in rows if (t.job_id is None or t.job_id in active_jobs) and (kind is None or t.kind == kind)]
 
 
+def all_prompts_message(tasks: list[ManualTask]) -> str:
+    """One message for a whole image group: ChatGPT makes one image per reply."""
+    n = len(tasks)
+    parts = [f"I need {n} separate images. Create them ONE AT A TIME: make image 1 now, then wait until I write "
+             f"\"next\" before making the next one. Every image follows its own description below."]
+    for i, t in enumerate(tasks, start=1):
+        meta = t.meta or {}
+        page = f" (page {meta['page_index']})" if meta.get("page_index") else ""
+        parts.append(f"### Image {i} of {n}{page}\n{t.prompt}")
+    return "\n\n".join(parts)
+
+
+def group_tasks(tasks: list[ManualTask]) -> list[dict[str, Any]]:
+    """Group open tasks by job + group label, keeping their order."""
+    groups: dict[tuple[int | None, str], dict[str, Any]] = {}
+    for t in tasks:
+        g = groups.setdefault((t.job_id, t.group), {"key": f"{t.job_id}:{t.group}", "job_id": t.job_id, "group": t.group,
+                                                     "kind": t.kind, "task": t.task, "tasks": []})
+        g["tasks"].append(t)
+    out = list(groups.values())
+    for g in out:
+        g["all_prompts"] = all_prompts_message(g["tasks"]) if g["kind"] == "image" and len(g["tasks"]) > 1 else None
+    return out
+
+
 def recent_tasks(session: Session, book_id: int, limit: int = 12) -> list[ManualTask]:
     return list(session.scalars(select(ManualTask).where(ManualTask.book_id == book_id, ManualTask.status != "pending")
                                 .order_by(ManualTask.answered_at.desc(), ManualTask.id.desc()).limit(limit)).all())
