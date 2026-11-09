@@ -44,6 +44,8 @@ def get_image_provider(name: str | None = None) -> ImageProvider:
         from .image_http import OpenAIImageProvider
 
         return OpenAIImageProvider(s.openai_api_key, s.openai_image_model, s.openai_base_url, s.http_timeout)
+    if name == "manual":
+        raise ProviderError("IMAGE_PROVIDER=manual only works in manual mode (images come from ChatGPT)")
     if name == "gemini":
         from .image_http import GeminiImageProvider
 
@@ -58,13 +60,27 @@ def _anthropic() -> Any:
     return AnthropicLLM(s.anthropic_api_key, s.anthropic_model, s.anthropic_base_url, s.http_timeout)
 
 
+def manual_active() -> bool:
+    from ..services.manual import is_manual
+
+    return is_manual()
+
+
 def get_text_llm() -> TextLLM:
     if "text" in _overrides:
         return _overrides["text"]
+    if manual_active():
+        from .manual import ManualTextLLM
+
+        return ManualTextLLM()
     return _anthropic() if get_settings().text_provider == "anthropic" else MockTextLLM()
 
 
 def get_vision_llm() -> VisionLLM:
     if "vision" in _overrides:
         return _overrides["vision"]
+    if manual_active():
+        from .manual import ManualTextLLM
+
+        return ManualTextLLM()
     return _anthropic() if get_settings().vision_provider == "anthropic" else MockVisionLLM()

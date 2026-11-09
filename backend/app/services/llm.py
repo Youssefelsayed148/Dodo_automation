@@ -43,16 +43,27 @@ def structured(
     text_llm: TextLLM | None = None,
     vision_llm: VisionLLM | None = None,
     prompt: str | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> T:
+    """`meta` adds task metadata (manual mode: refs, expected_count, count_field)."""
     prompt = prompt if prompt is not None else render(task, variables)
     schema = model.model_json_schema()
-    meta = {"task": task, "vars": variables}
+    base_meta = {"task": task, "vars": variables, "model": model.__name__, **(meta or {})}
+    llm: Any = (vision_llm or get_vision_llm()) if images else (text_llm or get_text_llm())
 
     def call(p: str, attempt: int) -> Any:
-        m = {**meta, "attempt": attempt}
+        m = {**base_meta, "attempt": attempt}
         if images:
-            return (vision_llm or get_vision_llm()).analyze(images, p, schema, meta=m)
-        return (text_llm or get_text_llm()).complete(p, schema, meta=m)
+            return llm.analyze(images, p, schema, meta=m)
+        return llm.complete(p, schema, meta=m)
+
+    if getattr(llm, "manual", False):
+        # Manual mode: the answer was validated when the user submitted it; no repair round trip.
+        raw = call(prompt, 0)
+        try:
+            return _parse(raw, model)
+        except (ValidationError, JSONExtractError, ValueError) as e:
+            raise LLMOutputError(f"{task}: stored ChatGPT answer is invalid: {e}") from e
 
     raw = call(prompt, 0)
     try:

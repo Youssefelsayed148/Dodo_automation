@@ -29,9 +29,9 @@ def sniff(data: bytes) -> str:
     return "unknown"
 
 
-def validate_image(data: bytes) -> tuple[bytes, str]:
-    if len(data) > MAX_IMAGE_BYTES:
-        raise UploadError("image is larger than 10 MB")
+def validate_image(data: bytes, max_bytes: int = MAX_IMAGE_BYTES) -> tuple[bytes, str]:
+    if len(data) > max_bytes:
+        raise UploadError(f"image is larger than {max_bytes // (1024 * 1024)} MB")
     kind = sniff(data)
     if kind not in ("png", "jpg", "webp"):
         raise UploadError("only PNG, JPEG, WEBP images or PDF files are accepted")
