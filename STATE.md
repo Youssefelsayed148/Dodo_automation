@@ -47,20 +47,22 @@ Manual mode (ChatGPT Pro, no paid API) implemented per `MANUAL_MODE_PLAN.md` (wo
 Backend: fastapi, uvicorn[standard], sqlalchemy 2, alembic, pydantic 2, httpx, python-multipart, pillow, numpy, weasyprint, pypdfium2 (PDF→images, HTML page rasterizing), beautifulsoup4 (store page parsing), anthropic, google-api-python-client, google-auth-oauthlib. Dev: pytest, ruff.
 Frontend: react, react-dom, react-router-dom, @tanstack/react-query, i18next, react-i18next. Dev: typescript, vite, @vitejs/plugin-react, vitest, @types/react(-dom).
 
+Infrastructure (not code deps): Docker Compose with `python:3.12-slim` (+ apt: libpango-1.0-0, libpangoft2-1.0-0, libharfbuzz-subset0, fonts-dejavu-core, fonts-noto-core), `node:22-alpine` build, `nginx:1.27-alpine` runtime. Local venv/`make setup`/`make dev`/`scripts/dev.sh` were removed in favor of `make up`.
+
 ## Open questions (resolved by the comparison harness, not guessed)
 - Which image provider/model for line art and for reference-based consistency.
 - Whether batch size 10 works for manual use, else 5.
 - Default concurrency and per-book cost ceiling.
 
 ## How to run
-See README: `make setup && make dev`; tests `make test`; harness `make compare ARGS="--providers mock,openai"`.
+See README: everything runs in Docker. `make up` (http://127.0.0.1:8080), `make test`, `make compare ARGS="--providers mock,openai"`, `make down`, `make reset`.
 
 ## Known issues
 - Verified in CI only (the build container had no PyPI/npm access). The frontend (including the manual-mode panel) has not been clicked through in a real browser yet.
 - Manual mode has not been tried against real ChatGPT output yet; ChatGPT images often go close to the edges, so expect some pages flagged by the edge check (approve them in Review if they look fine).
 - WeasyPrint/Pango and pypdfium2 are not thread-safe: all native PDF calls go through `render.raster.PDF_LOCK`. Keep using it for any new PDF code.
 - WeasyPrint misplaces column-flex items in RTL: use block layout for centered page content.
-- Fonts are not committed (downloaded by `make fonts`); PDFs fall back to DejaVu Sans / system Noto.
+- Fonts are not committed (downloaded during the Docker image build (scripts/fetch_fonts.py)); PDFs fall back to DejaVu Sans / system Noto.
 - No end-to-end run against real image/LLM providers has been done yet (needs keys); run the comparison harness first.
 - Vision QA and consistency checks depend on the chosen LLM; with mocks they always pass.
 - Hosted mode (v2: auth, HTTPS, rate limits) is out of scope.

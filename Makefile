@@ -1,42 +1,22 @@
-# Dodo Book Studio – common commands
-PY ?= python3.12
-VENV := backend/.venv
-BIN := $(VENV)/bin
+# Dodo Book Studio. Everything runs in Docker; `make up` is the only command you need.
+.PHONY: up down logs test compare reset
 
-.PHONY: setup backend frontend dev test test-backend test-frontend lint fonts compare migrate
+up: ## build the images and start the app at http://127.0.0.1:8080
+	docker compose up --build -d --wait
+	@echo "Dodo Book Studio: http://127.0.0.1:8080"
 
-setup: ## install backend + frontend dependencies
-	$(PY) -m venv $(VENV)
-	$(BIN)/pip install -U pip
-	$(BIN)/pip install -e "backend[dev]"
-	cd frontend && npm install
-	@test -f .env || cp .env.example .env
+down: ## stop the app (data is kept)
+	docker compose down
 
-fonts: ## download bundled fonts (Fredoka, Nunito, Noto Naskh Arabic, Cairo)
-	$(BIN)/python scripts/fetch_fonts.py
+logs: ## follow the logs
+	docker compose logs -f
 
-migrate:
-	cd backend && ../$(BIN)/alembic upgrade head
+test: ## backend pytest (mock providers, offline) + frontend tests/typecheck, all in containers
+	docker compose run --rm --no-deps -e MANUAL_MODE=0 backend sh -c "ruff check . && pytest"
+	docker build -f frontend/Dockerfile --target test -t dodo-frontend-test .
 
-backend:
-	cd backend && ../$(BIN)/python -m app.main
+compare: ## image model comparison harness, e.g. make compare ARGS="--providers mock,openai"
+	docker compose run --rm --no-deps backend python -m app.services.compare $(ARGS)
 
-frontend:
-	cd frontend && npm run dev
-
-dev: ## run backend and frontend together
-	./scripts/dev.sh
-
-test: test-backend test-frontend
-
-test-backend:
-	cd backend && ../$(BIN)/pytest
-
-test-frontend:
-	cd frontend && npm test && npm run typecheck
-
-lint:
-	cd backend && ../$(BIN)/ruff check .
-
-compare: ## run the image model comparison harness (CLI)
-	cd backend && ../$(BIN)/python -m app.services.compare $(ARGS)
+reset: ## stop the app AND delete all data (books, database, tokens)
+	docker compose down -v

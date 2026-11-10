@@ -1,0 +1,38 @@
+# Dodo Book Studio: backend (FastAPI + job worker) and web (nginx serving the built UI, proxying /api).
+# Secrets live in .env (optional, git-ignored). Everything persistent is in the `dodo-data` volume.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8000"
+      DATA_DIR: /data
+      DATABASE_URL: sqlite:///data/app.db
+      CORS_ORIGINS: http://127.0.0.1:${WEB_PORT:-8080},http://localhost:${WEB_PORT:-8080}
+    volumes:
+      - dodo-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+    restart: unless-stopped
+
+volumes:
+  dodo-data:
