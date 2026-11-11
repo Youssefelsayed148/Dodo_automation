@@ -18,7 +18,7 @@ def get_all(db: Session = Depends(get_db)):
     s = get_settings()
     return {"values": settings_service.get_all(db), "defaults": settings_service.DEFAULTS,
             "providers": {"image": available_image_providers(), "env_image_provider": s.image_provider,
-                          "text": s.text_provider, "vision": s.vision_provider, "text_model": s.anthropic_model if s.text_provider == "anthropic" else "mock"},
+                          "text": s.text_provider, "vision": s.vision_provider, "text_model": {"anthropic": s.anthropic_model, "openai": s.openai_text_model}.get(s.text_provider, "mock")},
             "drive": {"configured": drive.is_configured(), "connected": drive.is_connected()},
             "manual": manual.mode_info(db)}
 

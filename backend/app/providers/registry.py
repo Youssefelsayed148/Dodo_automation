@@ -60,6 +60,21 @@ def _anthropic() -> Any:
     return AnthropicLLM(s.anthropic_api_key, s.anthropic_model, s.anthropic_base_url, s.http_timeout)
 
 
+def _openai() -> Any:
+    from .openai_llm import OpenAILLM
+
+    s = get_settings()
+    return OpenAILLM(s.openai_api_key, s.openai_text_model, s.openai_base_url, s.http_timeout)
+
+
+def _llm(provider: str, mock: Any) -> Any:
+    if provider == "anthropic":
+        return _anthropic()
+    if provider == "openai":
+        return _openai()
+    return mock
+
+
 def manual_active() -> bool:
     from ..services.manual import is_manual
 
@@ -73,7 +88,7 @@ def get_text_llm() -> TextLLM:
         from .manual import ManualTextLLM
 
         return ManualTextLLM()
-    return _anthropic() if get_settings().text_provider == "anthropic" else MockTextLLM()
+    return _llm(get_settings().text_provider, MockTextLLM())
 
 
 def get_vision_llm() -> VisionLLM:
@@ -83,4 +98,4 @@ def get_vision_llm() -> VisionLLM:
         from .manual import ManualTextLLM
 
         return ManualTextLLM()
-    return _anthropic() if get_settings().vision_provider == "anthropic" else MockVisionLLM()
+    return _llm(get_settings().vision_provider, MockVisionLLM())

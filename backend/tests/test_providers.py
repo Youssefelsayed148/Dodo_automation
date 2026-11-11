@@ -134,3 +134,55 @@ def test_anthropic_adapter_json_and_cost():
     assert content[0]["type"] == "image" and content[0]["source"]["media_type"] == "image/png"
     assert fake.messages.kwargs["model"] == "claude-opus-5-5"
     assert recs[0].est_cost_usd == pytest.approx((1000 * 4 + 200 * 20) / 1e6)
+
+
+def _openai_llm(handler):
+    from app.providers.openai_llm import OpenAILLM
+
+    return OpenAILLM("sk-test", "gpt-5-mini", transport=httpx.MockTransport(handler))
+
+
+def test_openai_llm_json_and_usage():
+    seen = {}
+
+    def handler(request: httpx.Request):
+        seen["body"] = json.loads(request.content)
+        seen["auth"] = request.headers["authorization"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"mood": "cozy"}'}}],
+                                         "usage": {"prompt_tokens": 1000, "completion_tokens": 100}})
+
+    recs = []
+    base.add_usage_sink(recs.append)
+    out = _openai_llm(handler).complete("hi", {"type": "object"})
+    assert out == {"mood": "cozy"} and seen["auth"] == "Bearer sk-test"
+    assert seen["body"]["model"] == "gpt-5-mini" and seen["body"]["response_format"] == {"type": "json_object"}
+    r = [x for x in recs if x.provider == "openai"][-1]
+    assert r.est_cost_usd == pytest.approx((1000 * 0.25 + 100 * 2.0) / 1e6)
+
+
+def test_openai_llm_sends_images_and_maps_errors():
+    seen = {}
+
+    def ok(request: httpx.Request):
+        seen["content"] = json.loads(request.content)["messages"][-1]["content"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+    _openai_llm(ok).analyze([b"\x89PNG\r\n\x1a\nxx"], "look", {})
+    assert seen["content"][0]["image_url"]["url"].startswith("data:image/png;base64,")
+    with pytest.raises(ProviderError):
+        _openai_llm(lambda r: httpx.Response(401, text="bad key")).complete("x", {})
+
+
+def test_registry_picks_openai(monkeypatch):
+    from app.config import get_settings
+    from app.providers import registry
+    from app.providers.openai_llm import OpenAILLM
+
+    monkeypatch.setenv("TEXT_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    get_settings.cache_clear()
+    try:
+        assert isinstance(registry.get_text_llm(), OpenAILLM)
+    finally:
+        monkeypatch.undo()
+        get_settings.cache_clear()

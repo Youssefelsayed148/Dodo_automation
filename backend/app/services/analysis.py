@@ -173,8 +173,7 @@ def link_note(book: Book, source_text: str, images: list[bytes]) -> str:
     if not book.source_url or len(source_text) >= 80 or images:
         return ""
     hint = url_hint_words(book.source_url)
-    note = (f"- The store page could not be read automatically. Source link: {book.source_url}
-"
+    note = (f"- The store page could not be read automatically. Source link: {book.source_url}\n"
             "  If you can browse the web, open it and read the book's details (cover, description, "
             "inside pages); otherwise infer only from the words in the link")
     if hint:

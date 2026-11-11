@@ -346,12 +346,12 @@ def _parse_amazon(soup, info: PageInfo) -> None:
         if "images/I/" in src:
             urls.append(src)
     big: list[str] = []
-    for u in urls:
+    for u in urls + list(info.image_urls):
         u = AMAZON_SIZE_TOKEN.sub("", u)  # drop the ._AC_US40_ thumbnail token -> full size
         if "images/I/" in u and u not in big and "sprite" not in u:
             big.append(u)
     if big:
-        info.image_urls = (big + [u for u in info.image_urls if u not in big])[:MAX_IMAGES]
+        info.image_urls = big[:MAX_IMAGES]
 
 
 def looks_like_bot_wall(html: str) -> bool:

@@ -34,6 +34,9 @@ Manual mode (ChatGPT Pro, no paid API) implemented per `MANUAL_MODE_PLAN.md` (wo
 - UI: `bot_blocked` message + clearer fallback hint (en/ar). Tests: Amazon fixture, retry, bot wall, theme prompt, link hand-over.
 - Limit: Amazon may still refuse some IPs (datacenter/VPN); the fallback is paste description / upload "Look inside" screenshots / manual-mode link.
 
+- OpenAI text + vision adapter (`providers/openai_llm.py`, Chat Completions over httpx, no new dependency). Select with `TEXT_PROVIDER=openai` / `VISION_PROVIDER=openai`, model in `OPENAI_TEXT_MODEL` (default `gpt-5-mini`). One-key setup: all three providers = openai. Auto manual mode now keys off `text_provider == mock` instead of the Anthropic key. Prices in `costs.py` are estimates, override with `COST_TABLE`.
+- Note: tests run in the Docker image; run `docker compose build backend` before `docker compose run ... pytest`, or the container tests stale code.
+
 ## Decisions
 - Prompt files live in `backend/app/prompts/` (PLAN §5 layout) rather than `backend/prompts/` (§10), so they ship with the package.
 - Added columns beyond PLAN §6: `Book.style_anchor`, `Book.meta` (fetch info, sample, cover, drive, per-book provider), `Page.description`, `Page.meta` (character ids, user note), `Job.message/result/attempts`, `UsageLog.page_id/purpose`. Needed for the style anchor, gates and per-page cost.

@@ -72,7 +72,7 @@ def env_manual() -> bool | None:
 def auto_manual() -> bool:
     """Auto: manual when there is no paid text model and no real image provider."""
     s = get_settings()
-    return not s.anthropic_api_key and s.image_provider in ("mock", "manual")
+    return s.text_provider == "mock" and s.image_provider in ("mock", "manual")
 
 
 def setting_manual(session: Session | None = None) -> bool | None:

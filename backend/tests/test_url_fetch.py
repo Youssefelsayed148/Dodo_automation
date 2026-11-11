@@ -129,6 +129,8 @@ def test_persistent_bot_wall_raises_site_blocked():
 
 
 def test_body_text_fallback_for_pages_without_meta():
-    html = "<html><body><h1>Dinosaur Dig Activity Book</h1><p>Dig through twenty pages of fossil mazes and bone counting games.</p></body></html>"
+    html = ("<html><body><h1>Dinosaur Dig Activity Book</h1><p>Dig through twenty pages of fossil mazes and bone counting games.</p>"
+            "<p>Big friendly dinosaurs, thick outlines and plenty of room to color for curious young explorers.</p>"
+            "<p>Each page has a small challenge so children can play, count and color at their own pace.</p></body></html>")
     info = parse_html(html, "https://shop.example.com/dino")
     assert "fossil mazes" in info.body_text and not info.is_thin

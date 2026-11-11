@@ -50,6 +50,7 @@ class Settings(BaseModel):
 
     openai_api_key: str = ""
     openai_image_model: str = "gpt-image-1"
+    openai_text_model: str = "gpt-5-mini"
     openai_base_url: str = "https://api.openai.com"
 
     gemini_api_key: str = ""
@@ -119,6 +120,7 @@ def get_settings() -> Settings:
         anthropic_base_url=_env("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
         openai_api_key=_env("OPENAI_API_KEY"),
         openai_image_model=_env("OPENAI_IMAGE_MODEL", "gpt-image-1"),
+        openai_text_model=_env("OPENAI_TEXT_MODEL", "gpt-5-mini"),
         openai_base_url=_env("OPENAI_BASE_URL", "https://api.openai.com"),
         gemini_api_key=_env("GEMINI_API_KEY"),
         gemini_image_model=_env("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image"),
