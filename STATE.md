@@ -28,6 +28,12 @@ Manual mode (ChatGPT Pro, no paid API) implemented per `MANUAL_MODE_PLAN.md` (wo
 - Frontend: ChatGPT tasks panel at the top of every step (copy prompt, open ChatGPT, answer box with fix prompt, image cards with drop/paste/click upload, references download, copy-all, bulk upload, skip), "Waiting for you" status, consistency pass/fail buttons, combined sheet, setup card, Settings toggle, en/ar strings.
 - Tests: `tests/test_manual.py` (full manual book end to end through export, no duplicate tasks, validation errors + fix prompt, page count, bulk matching, skip rules, consistency verdicts + override, redo).
 
+## Source fetching and theme-only analysis (latest session)
+- `url_fetch`: browser-like headers + per-fetch cookies, Amazon links canonicalised to `/dp/ASIN`, Amazon DOM parsing (title, description, full-size images), bot-wall/captcha detection with one retry on a mobile user agent, `SiteBlocked` -> fetch status `bot_blocked`, visible-text fallback (`body_text`) for pages without meta tags. No new dependencies.
+- `analysis`: when the page cannot be read the prompt now carries the source link (+ slug words) so a browsing ChatGPT can open it; prompt `analyze_source` v2. Theme-only input (no link, no pages) uses the new `analyze_theme` prompt (formula designed for that theme).
+- UI: `bot_blocked` message + clearer fallback hint (en/ar). Tests: Amazon fixture, retry, bot wall, theme prompt, link hand-over.
+- Limit: Amazon may still refuse some IPs (datacenter/VPN); the fallback is paste description / upload "Look inside" screenshots / manual-mode link.
+
 ## Decisions
 - Prompt files live in `backend/app/prompts/` (PLAN §5 layout) rather than `backend/prompts/` (§10), so they ship with the package.
 - Added columns beyond PLAN §6: `Book.style_anchor`, `Book.meta` (fetch info, sample, cover, drive, per-book provider), `Page.description`, `Page.meta` (character ids, user note), `Job.message/result/attempts`, `UsageLog.page_id/purpose`. Needed for the style anchor, gates and per-page cost.

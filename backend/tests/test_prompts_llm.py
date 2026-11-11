@@ -6,7 +6,7 @@ from app.services import prompts
 from app.services.llm import LLMOutputError, structured
 
 REQUIRED = ["analyze_source", "propose_themes", "propose_formats", "plan_pages", "character_brief", "character_edit",
-            "page_image_prompt", "story_text", "qa_content", "qa_vision_check", "planning_prompt_export"]
+            "analyze_theme", "page_image_prompt", "story_text", "qa_content", "qa_vision_check", "planning_prompt_export"]
 
 
 def test_all_required_prompts_exist_and_are_versioned():
@@ -16,7 +16,7 @@ def test_all_required_prompts_exist_and_are_versioned():
         assert prompts.prompt_version(n) >= 1
 
 
-@pytest.mark.parametrize("name", ["analyze_source", "propose_themes", "propose_formats", "plan_pages", "character_brief", "story_text"])
+@pytest.mark.parametrize("name", ["analyze_source", "analyze_theme", "propose_themes", "propose_formats", "plan_pages", "character_brief", "story_text"])
 def test_prompts_touching_reference_include_originality_rule(name):
     assert "{originality_rule}" in prompts.load_prompt(name)
 

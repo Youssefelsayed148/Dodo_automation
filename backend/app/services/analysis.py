@@ -18,7 +18,8 @@ from ..models import Book, Recipe
 from ..schemas import CONTENT_PAGE_TYPES, RecipeOut
 from . import storage
 from .llm import structured
-from .url_fetch import FetchBlocked, FetchFailed, fetch_image, fetch_page
+from .prompts import render
+from .url_fetch import FetchBlocked, FetchFailed, SiteBlocked, fetch_image, fetch_page, url_hint_words
 
 log = logging.getLogger(__name__)
 STOPWORDS = {"book", "books", "coloring", "colouring", "color", "colour", "activity", "sticker", "stickers", "kids",
@@ -62,6 +63,8 @@ def fetch_source(book: Book) -> dict[str, Any]:
         info = fetch_page(book.source_url)
     except FetchBlocked as e:
         return {"status": "blocked", "error": str(e)}
+    except SiteBlocked as e:
+        return {"status": "bot_blocked", "error": str(e)}
     except (FetchFailed, Exception) as e:  # noqa: BLE001
         return {"status": "failed", "error": str(e)}
     saved = 0
@@ -106,21 +109,33 @@ def analyze_book(session: Session, book: Book, progress=lambda p, m=None: None) 
             prod = fetch.get("product") or {}
             if prod.get("description") and prod.get("description") != fetch.get("description"):
                 text_parts.append(str(prod["description"]))
-        if book.source_text:
+        if fetch.get("status") in ("ok", "thin") and fetch.get("body_text"):
+            text_parts.append(str(fetch["body_text"]))
+        theme_mode = not book.source_url and not uploads and bool(book.source_text)
+        if book.source_text and not theme_mode:
             text_parts.append(book.source_text)
         source_text = "\n\n".join(t for t in text_parts if t).strip()[:8000]
         conf = expected_confidence(bool(uploads), len(source_text), len(images))
         progress(0.4, "analyzing")
+        variables = {"source_text": source_text or "(no text available)", "image_count": len(images),
+                     "expected_confidence": conf, "page_types": ", ".join(CONTENT_PAGE_TYPES),
+                     "link_note": link_note(book, source_text, images)}
+        prompt = None
+        if theme_mode:
+            # Only a theme / idea: design the formula for this theme instead of "analyzing" a book.
+            variables["theme"] = book.source_text.strip()[:4000]
+            prompt = render("analyze_theme", variables)
         out = structured(
             "analyze_source",
-            {"source_text": source_text or "(no text available)", "image_count": len(images),
-             "expected_confidence": conf, "page_types": ", ".join(CONTENT_PAGE_TYPES)},
+            variables,
             RecipeOut,
             images=images or None,
+            prompt=prompt,
             # manual mode: the user downloads these pictures and attaches them in ChatGPT
             meta={"refs": [storage.rel(p) for p in image_paths]},
         )
-        terms = banned_terms(list(fetch.get("brand_terms") or []) + [fetch.get("title") or ""])
+        terms = banned_terms(list(fetch.get("brand_terms") or []) + [fetch.get("title") or ""]
+                             + [url_hint_words(book.source_url or "").title()])
         mix = [m for m in out.page_mix if m.type in CONTENT_PAGE_TYPES]
         total = sum(m.share for m in mix) or 0
         page_mix = [{"type": m.type, "share": round(m.share * 100 / total)} for m in mix] if total else []
@@ -150,6 +165,21 @@ def analyze_book(session: Session, book: Book, progress=lambda p, m=None: None) 
     finally:
         if not keep_sources:
             cleanup_source_images(book.id)
+
+
+def link_note(book: Book, source_text: str, images: list[bytes]) -> str:
+    """When the store page could not be read, still hand over the link (a browsing ChatGPT can open it; the slug
+    often holds the title words) instead of an empty prompt."""
+    if not book.source_url or len(source_text) >= 80 or images:
+        return ""
+    hint = url_hint_words(book.source_url)
+    note = (f"- The store page could not be read automatically. Source link: {book.source_url}
+"
+            "  If you can browse the web, open it and read the book's details (cover, description, "
+            "inside pages); otherwise infer only from the words in the link")
+    if hint:
+        note += f' ("{hint}")'
+    return note + ". Keep confidence low when you are guessing."
 
 
 def cleanup_source_images(book_id: int) -> int:

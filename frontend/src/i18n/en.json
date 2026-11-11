@@ -190,8 +190,9 @@
       "thin": "The store page had very little readable content.",
       "failed": "The store page could not be loaded.",
       "blocked": "That link is not allowed.",
+      "bot_blocked": "The shop blocked the automatic read (robot check).",
       "none": "",
-      "fallback": "Paste the description text or upload a few pages, then analyze again."
+      "fallback": "Paste the book's title and description from the page, or upload a few preview pages, then analyze again. Tip: with 'Link + pages' you can attach screenshots of the 'Look inside' pages."
     }
   },
   "style": {

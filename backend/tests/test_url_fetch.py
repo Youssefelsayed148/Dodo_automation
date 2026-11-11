@@ -68,3 +68,67 @@ def test_fetch_ok_and_size_cap(monkeypatch):
     monkeypatch.setattr(url_fetch, "MAX_HTML_BYTES", 100)
     with pytest.raises(url_fetch.FetchFailed):
         fetch_page("https://shop.example.com/", resolver=public, transport=httpx.MockTransport(handler))
+
+
+def _html_handler(html, seen=None):
+    def handler(request: httpx.Request):
+        if seen is not None:
+            seen.append(request)
+        return httpx.Response(200, headers={"content-type": "text/html"}, text=html)
+
+    return handler
+
+
+def test_amazon_page_is_parsed():
+    info = parse_html((FIX / "amazon_page.html").read_text(), "https://www.amazon.com/dp/B0TESTASIN")
+    assert info.title == "Wobble Pond Friends Coloring Book"
+    assert "gentle pond animals" in info.description
+    assert info.image_urls[0] == "https://m.media-amazon.com/images/I/81big.jpg"  # biggest first, size token stripped
+    assert all("._" not in u for u in info.image_urls)
+    assert not info.is_thin
+    assert any("Wobble" in t for t in info.brand_terms)
+
+
+def test_amazon_url_is_canonicalized():
+    long = "https://www.amazon.com/Wobble-Pond-Friends-Coloring-Book/dp/B0TESTASIN/ref=sr_1_3?crid=XYZ&keywords=a"
+    assert url_fetch.canonical_url(long) == "https://www.amazon.com/dp/B0TESTASIN"
+    assert url_fetch.canonical_url("https://shop.example.com/x?y=1") == "https://shop.example.com/x?y=1"
+    assert url_fetch.url_hint_words(long) in ("Wobble Pond Friends Coloring Book",) or "Wobble" in url_fetch.url_hint_words(long)
+
+
+def test_browser_headers_and_canonical_target():
+    seen: list[httpx.Request] = []
+    html = (FIX / "amazon_page.html").read_text()
+    fetch_page("https://www.amazon.com/Wobble-Pond/dp/B0TESTASIN/ref=x?tag=1", resolver=public,
+               transport=httpx.MockTransport(_html_handler(html, seen)))
+    assert str(seen[0].url) == "https://www.amazon.com/dp/B0TESTASIN"
+    assert "Chrome" in seen[0].headers["user-agent"] and "en-US" in seen[0].headers["accept-language"]
+
+
+def test_bot_wall_retries_with_mobile_agent_then_succeeds():
+    agents: list[str] = []
+    good = (FIX / "amazon_page.html").read_text()
+    wall = (FIX / "thin_page.html").read_text()
+
+    def handler(request: httpx.Request):
+        agents.append(request.headers["user-agent"])
+        return httpx.Response(200, headers={"content-type": "text/html"}, text=wall if len(agents) == 1 else good)
+
+    info = fetch_page("https://www.amazon.com/dp/B0TESTASIN", resolver=public, transport=httpx.MockTransport(handler))
+    assert info.title.startswith("Wobble") and len(agents) == 2 and "iPhone" in agents[1]
+
+
+def test_persistent_bot_wall_raises_site_blocked():
+    wall = (FIX / "thin_page.html").read_text()
+    with pytest.raises(url_fetch.SiteBlocked):
+        fetch_page("https://www.amazon.com/dp/B0TESTASIN", resolver=public,
+                   transport=httpx.MockTransport(_html_handler(wall)))
+    with pytest.raises(url_fetch.SiteBlocked):
+        fetch_page("https://www.amazon.com/dp/B0TESTASIN", resolver=public,
+                   transport=httpx.MockTransport(lambda r: httpx.Response(503)))
+
+
+def test_body_text_fallback_for_pages_without_meta():
+    html = "<html><body><h1>Dinosaur Dig Activity Book</h1><p>Dig through twenty pages of fossil mazes and bone counting games.</p></body></html>"
+    info = parse_html(html, "https://shop.example.com/dino")
+    assert "fossil mazes" in info.body_text and not info.is_thin

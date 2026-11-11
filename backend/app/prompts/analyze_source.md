@@ -1,4 +1,4 @@
-<!-- prompt: analyze_source v1 -->
+<!-- prompt: analyze_source v2 -->
 You are analyzing a children's book that the user likes (coloring book, sticker book or activity book) in order to extract its abstract *formula* only.
 
 {originality_rule}
@@ -9,6 +9,7 @@ Material available:
 {source_text}
 ---
 - {image_count} preview/page image(s) are attached (may be zero).
+{link_note}
 
 Describe the formula:
 - mood: 2-5 words (e.g. "cheerful and cozy")

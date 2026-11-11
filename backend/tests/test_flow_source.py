@@ -91,3 +91,49 @@ def test_originality_scrub(client, monkeypatch):
     rec = client.get(f"/api/books/{b['id']}/recipe").json()
     for field in ("mood", "notes"):
         assert "Bramble" not in rec[field] and "Sunnyday" not in rec[field]
+
+
+def test_theme_only_uses_theme_prompt(client):
+    from app.providers import registry
+    from app.providers.mock import MockTextLLM
+
+    seen: list[str] = []
+
+    class Spy(MockTextLLM):
+        def complete(self, prompt, schema=None, **kw):
+            seen.append(prompt)
+            return super().complete(prompt, schema, **kw)
+
+    registry.set_override("text", Spy())
+    b = new_book(client)
+    r = client.post(f"/api/books/{b['id']}/source", data={"text": "space dinosaurs who love to bake"})
+    wait_ok(client, r.json()["job"])
+    assert "space dinosaurs who love to bake" in seen[0]
+    assert "designing the style formula" in seen[0] and "ORIGINALITY RULE" in seen[0]
+    assert "analyzing a children's book" not in seen[0]
+
+
+def test_unreadable_link_still_hands_over_the_link(client, monkeypatch):
+    from app.providers import registry
+    from app.providers.mock import MockTextLLM
+    from app.services import analysis
+    from app.services.url_fetch import SiteBlocked
+
+    def blocked(url):
+        raise SiteBlocked("robot check")
+
+    seen: list[str] = []
+
+    class Spy(MockTextLLM):
+        def complete(self, prompt, schema=None, **kw):
+            seen.append(prompt)
+            return super().complete(prompt, schema, **kw)
+
+    registry.set_override("text", Spy())
+    monkeypatch.setattr(analysis, "fetch_page", blocked)
+    monkeypatch.setattr("app.api.books.validate_url", lambda url: url)
+    b = new_book(client)
+    url = "https://www.amazon.com/Wobble-Pond-Friends-Coloring-Book/dp/B0TESTASIN"
+    wait_ok(client, client.post(f"/api/books/{b['id']}/source", data={"url": url}).json()["job"])
+    assert client.get(f"/api/books/{b['id']}").json()["fetch"]["status"] == "bot_blocked"
+    assert url in seen[0] and "open it and read" in seen[0]

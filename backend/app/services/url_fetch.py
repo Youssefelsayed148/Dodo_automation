@@ -4,13 +4,15 @@
 - hostname resolved; every resolved IP must be public (no private, loopback,
   link-local, multicast, reserved, unspecified, CGNAT/shared)
 - redirects followed manually (max 5), each hop re-validated
-- size and time limits, no cookies
+- size and time limits; cookies live only inside one fetch (some shops need them to serve the page)
+- sends browser-like headers and retries once with a mobile user agent when a shop answers with a bot wall
 """
 
 from __future__ import annotations
 
 import ipaddress
 import json
+import re
 import socket
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -24,8 +26,18 @@ MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_IMAGES = 5
 TIMEOUT = httpx.Timeout(15.0, connect=8.0)
 MAX_REDIRECTS = 5
-USER_AGENT = "Mozilla/5.0 (compatible; DodoBookStudio/1.0; personal use)"
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 "
+    "Mobile/15E148 Safari/604.1",
+]
+USER_AGENT = USER_AGENTS[0]
 THIN_TEXT_CHARS = 80
+BODY_TEXT_CHARS = 3000
+BOT_WALL_MARKERS = (
+    "enter the characters you see below", "api-services-support@amazon", "robot check", "are you a human",
+    "verify you are human", "unusual traffic", "access denied", "just a moment...", "captcha",
+)
 
 Resolver = Callable[[str], list[str]]
 
@@ -36,6 +48,10 @@ class FetchBlocked(ValueError):
 
 class FetchFailed(RuntimeError):
     pass
+
+
+class SiteBlocked(FetchFailed):
+    """The shop answered with a bot wall / captcha instead of the product page."""
 
 
 def default_resolver(host: str) -> list[str]:
@@ -93,13 +109,19 @@ def validate_url(url: str, resolver: Resolver = default_resolver) -> str:
     return url.strip()
 
 
+def _headers(accept: str, user_agent: str) -> dict[str, str]:
+    return {"User-Agent": user_agent, "Accept": accept, "Accept-Language": "en-US,en;q=0.9",
+            "Upgrade-Insecure-Requests": "1"}
+
+
 def _get(url: str, max_bytes: int, resolver: Resolver, transport: httpx.BaseTransport | None,
-         accept: str) -> tuple[str, bytes, str]:
+         accept: str, user_agent: str = USER_AGENT) -> tuple[str, bytes, str]:
     current = url
-    for _ in range(MAX_REDIRECTS + 1):
-        validate_url(current, resolver)
-        with httpx.Client(timeout=TIMEOUT, follow_redirects=False, transport=transport,
-                          headers={"User-Agent": USER_AGENT, "Accept": accept}) as client:
+    # One client per fetch: cookies set on the first hop are sent on the following redirects.
+    with httpx.Client(timeout=TIMEOUT, follow_redirects=False, transport=transport,
+                      headers=_headers(accept, user_agent)) as client:
+        for _ in range(MAX_REDIRECTS + 1):
+            validate_url(current, resolver)
             with client.stream("GET", current) as r:
                 if r.status_code in (301, 302, 303, 307, 308):
                     loc = r.headers.get("location")
@@ -107,6 +129,8 @@ def _get(url: str, max_bytes: int, resolver: Resolver, transport: httpx.BaseTran
                         raise FetchFailed("redirect without location")
                     current = urljoin(current, loc)
                     continue
+                if r.status_code in (403, 429, 503):
+                    raise SiteBlocked(f"{urlparse(current).hostname} refused the request (HTTP {r.status_code})")
                 if r.status_code >= 400:
                     raise FetchFailed(f"HTTP {r.status_code} from {urlparse(current).hostname}")
                 declared = r.headers.get("content-length")
@@ -130,6 +154,7 @@ class PageInfo:
     product: dict[str, Any] = field(default_factory=dict)
     image_urls: list[str] = field(default_factory=list)
     brand_terms: list[str] = field(default_factory=list)
+    body_text: str = ""
 
     @property
     def text(self) -> str:
@@ -144,11 +169,13 @@ class PageInfo:
 
     @property
     def is_thin(self) -> bool:
-        return len(self.description.strip() or self.product.get("description", "") or "") < THIN_TEXT_CHARS and not self.image_urls
+        readable = len(self.description.strip() or str(self.product.get("description", "") or ""))
+        return readable < THIN_TEXT_CHARS and len(self.body_text) < 3 * THIN_TEXT_CHARS and not self.image_urls
 
     def as_dict(self) -> dict[str, Any]:
         return {"url": self.url, "title": self.title, "description": self.description, "og": self.og,
-                "product": self.product, "image_urls": self.image_urls, "thin": self.is_thin}
+                "product": self.product, "image_urls": self.image_urls, "body_text": self.body_text,
+                "thin": self.is_thin}
 
 
 def _iter_jsonld(obj: Any):
@@ -232,16 +259,132 @@ def parse_html(html: str, base_url: str) -> PageInfo:
         if full.startswith(("http://", "https://")) and full not in clean:
             clean.append(full)
     info.image_urls = clean[:MAX_IMAGES]
+    if is_amazon(base_url):
+        _parse_amazon(soup, info)
+    if len(info.description.strip()) < THIN_TEXT_CHARS:
+        info.body_text = _visible_text(soup)
     return info
+
+
+AMAZON_SIZE_TOKEN = re.compile(r"\._[A-Z0-9_,\-]+_(?=\.(?:jpe?g|png|webp)$)", re.I)
+
+
+def is_amazon(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return host == "amazon.com" or host.startswith("amazon.") or ".amazon." in host or host in ("a.co", "amzn.to")
+
+
+def amazon_asin(url: str) -> str | None:
+    m = re.search(r"/(?:dp|gp/product|gp/aw/d|product)/([A-Z0-9]{10})(?:[/?#]|$)", urlparse(url).path + "/", re.I)
+    return m.group(1).upper() if m else None
+
+
+def canonical_url(url: str) -> str:
+    """Amazon product links carry tracking junk and slugs; the short /dp/ form is the most reliable."""
+    p = urlparse(url.strip())
+    asin = amazon_asin(p.geturl()) if is_amazon(url) else None
+    if asin and p.hostname:
+        return f"https://{p.hostname}/dp/{asin}"
+    return url.strip()
+
+
+def url_hint_words(url: str) -> str:
+    """Human words from the link slug (Amazon/Etsy slugs usually contain the title)."""
+    path = urlparse(url).path
+    seg = max((x for x in path.split("/") if re.search(r"[A-Za-z]{3}", x)), key=len, default="")
+    words = [w for w in re.split(r"[-_+%\d]+", seg) if len(w) > 1]
+    return " ".join(words) if len(words) >= 2 else ""
+
+
+def _visible_text(soup) -> str:
+    for tag in soup(["script", "style", "noscript", "nav", "footer", "header", "form", "svg"]):
+        tag.decompose()
+    seen: list[str] = []
+    total = 0
+    for el in soup.find_all(["h1", "h2", "h3", "p", "li"]):
+        t = " ".join(el.get_text(" ", strip=True).split())
+        if len(t) < 25 or t in seen:
+            continue
+        seen.append(t)
+        total += len(t)
+        if total >= BODY_TEXT_CHARS:
+            break
+    return "\n".join(seen)[:BODY_TEXT_CHARS]
+
+
+def _parse_amazon(soup, info: PageInfo) -> None:
+    title = soup.select_one("#productTitle") or soup.select_one("#title")
+    if title and title.get_text(strip=True):
+        info.title = " ".join(title.get_text(" ", strip=True).split())
+        info.brand_terms.append(info.title)
+    byline = soup.select_one("#bylineInfo")
+    if byline:
+        info.brand_terms.append(" ".join(byline.get_text(" ", strip=True).split()))
+    parts: list[str] = []
+    for sel in ("#bookDescription_feature_div", "#productDescription", "#feature-bullets",
+                "#editorialReviews_feature_div", "#detailBullets_feature_div"):
+        for node in soup.select(sel):
+            txt = " ".join(node.get_text(" ", strip=True).split())
+            if len(txt) > 20:
+                parts.append(txt)
+    if parts:
+        info.description = "\n".join(parts)[:4000]
+    urls: list[str] = []
+    for img in soup.select("#landingImage, #imgBlkFront, #ebooksImgBlkFront, #main-image"):
+        dyn = img.get("data-a-dynamic-image")
+        if dyn:
+            try:
+                sizes = json.loads(dyn)
+                urls += sorted(sizes, key=lambda u: -int(sizes[u][0]))
+            except (json.JSONDecodeError, TypeError, IndexError, ValueError):
+                pass
+        for attr in ("data-old-hires", "src"):
+            if img.get(attr):
+                urls.append(img[attr])
+    for img in soup.select("#altImages img, #imageBlock img"):
+        src = img.get("src") or ""
+        if "images/I/" in src:
+            urls.append(src)
+    big: list[str] = []
+    for u in urls:
+        u = AMAZON_SIZE_TOKEN.sub("", u)  # drop the ._AC_US40_ thumbnail token -> full size
+        if "images/I/" in u and u not in big and "sprite" not in u:
+            big.append(u)
+    if big:
+        info.image_urls = (big + [u for u in info.image_urls if u not in big])[:MAX_IMAGES]
+
+
+def looks_like_bot_wall(html: str) -> bool:
+    head = html[:6000].lower()
+    if not any(m in head for m in BOT_WALL_MARKERS):
+        return False
+    # a real product page that merely mentions a marker is long and has product markup
+    return "productTitle" not in html and "application/ld+json" not in html and len(html) < 60000
 
 
 def fetch_page(url: str, *, resolver: Resolver = default_resolver,
                transport: httpx.BaseTransport | None = None) -> PageInfo:
-    final, body, ctype = _get(url, MAX_HTML_BYTES, resolver, transport, "text/html,application/xhtml+xml")
-    if ctype and "html" not in ctype and "xml" not in ctype:
-        raise FetchFailed(f"not an HTML page ({ctype})")
-    html = body.decode("utf-8", errors="replace")
-    return parse_html(html, final)
+    """Fetch and parse a store page. Tries a desktop and then a mobile browser identity; raises SiteBlocked when
+    the shop keeps answering with a captcha / bot wall."""
+    target = canonical_url(url)
+    last: Exception | None = None
+    for ua in USER_AGENTS:
+        try:
+            final, body, ctype = _get(target, MAX_HTML_BYTES, resolver, transport, "text/html,application/xhtml+xml",
+                                      user_agent=ua)
+        except SiteBlocked as e:
+            last = e
+            continue
+        if ctype and "html" not in ctype and "xml" not in ctype:
+            raise FetchFailed(f"not an HTML page ({ctype})")
+        html = body.decode("utf-8", errors="replace")
+        if looks_like_bot_wall(html):
+            last = SiteBlocked(f"{urlparse(final).hostname} showed a robot check instead of the page")
+            continue
+        info = parse_html(html, final)
+        info.url = url.strip()
+        return info
+    raise last or SiteBlocked("the shop blocked the request")
 
 
 def fetch_image(url: str, *, resolver: Resolver = default_resolver,

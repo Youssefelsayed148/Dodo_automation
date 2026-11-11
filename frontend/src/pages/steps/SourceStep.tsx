@@ -33,7 +33,7 @@ export default function SourceStep({ book, onNext }: StepProps) {
   });
 
   const fetchStatus = book.fetch?.status;
-  const thin = fetchStatus === "thin" || fetchStatus === "failed" || fetchStatus === "blocked";
+  const thin = fetchStatus === "thin" || fetchStatus === "failed" || fetchStatus === "blocked" || fetchStatus === "bot_blocked";
   const valid = mode === "text" ? text.trim().length > 0 : link.trim().length > 0 || text.trim().length > 0;
 
   return (
