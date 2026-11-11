@@ -37,6 +37,9 @@ Manual mode (ChatGPT Pro, no paid API) implemented per `MANUAL_MODE_PLAN.md` (wo
 - OpenAI text + vision adapter (`providers/openai_llm.py`, Chat Completions over httpx, no new dependency). Select with `TEXT_PROVIDER=openai` / `VISION_PROVIDER=openai`, model in `OPENAI_TEXT_MODEL` (default `gpt-5-mini`). One-key setup: all three providers = openai. Auto manual mode now keys off `text_provider == mock` instead of the Anthropic key. Prices in `costs.py` are estimates, override with `COST_TABLE`.
 - Note: tests run in the Docker image; run `docker compose build backend` before `docker compose run ... pytest`, or the container tests stale code.
 
+- Hybrid mode: `IMAGE_PROVIDER=manual` with an API text provider -> text/vision run by API, only image steps become ChatGPT tasks (`manual.images_manual()`; `is_manual()` still means "everything manual"). Consistency checks use the vision model in hybrid. The manual panel shows whenever images are manual (`manual_mode` in `/manual` = `images_manual`).
+- Collection books (a different animal/fruit per page): zero characters is valid; the page plan then asks for one new subject per image page, and the sample page uses a typical subject of the theme. No per-character pipeline needed.
+
 ## Decisions
 - Prompt files live in `backend/app/prompts/` (PLAN §5 layout) rather than `backend/prompts/` (§10), so they ship with the package.
 - Added columns beyond PLAN §6: `Book.style_anchor`, `Book.meta` (fetch info, sample, cover, drive, per-book provider), `Page.description`, `Page.meta` (character ids, user note), `Job.message/result/attempts`, `UsageLog.page_id/purpose`. Needed for the style anchor, gates and per-page cost.

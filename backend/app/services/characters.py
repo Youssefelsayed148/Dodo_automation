@@ -26,7 +26,7 @@ from ..schemas import CharacterBriefsOut, CharacterEditOut, VisionVerdict
 from . import storage
 from .analysis import recipe_text
 from .llm import structured
-from .manual import ImageReq, image_batch, is_manual
+from .manual import ImageReq, image_batch, images_manual, is_manual
 from .prompts import NO_TEXT_RULE
 
 SHEET_VIEWS = ("front", "side", "three-quarter")
@@ -200,7 +200,7 @@ def generate_candidates(session: Session, book: Book, c: Character, n: int = N_C
     rules, _ = style_anchor(book)
     prompt = base_prompt(c, rules)
     version = len(_versions(c)) + 1
-    manual = is_manual(session)
+    manual = images_manual(session)
     reqs = [ImageReq(prompt + (f" Variation {i + 1} of {n}: make it clearly different from the other variations." if manual else ""),
                      label=str(i + 1), refs=style_ref_paths(book), seed=1000 * version + i,
                      meta={"character": c.name})
@@ -253,7 +253,7 @@ def edit_character(session: Session, book: Book, c: Character, instruction: str)
         raise GateError("select a candidate before editing")
     rules, _ = style_anchor(book)
     current = (sel.meta or {}).get("prompt") or base_prompt(c, rules)
-    if is_manual(session):
+    if images_manual(session):
         # No LLM round trip: a fixed template keeps everything but the requested change.
         new_prompt, changed = f"{current} Change: {instruction.strip()}.", instruction.strip()
         task_prompt = (f"Redraw the character from the attached image. Keep EVERYTHING identical (shapes, proportions, "
@@ -299,7 +299,7 @@ def generate_sheet(session: Session, book: Book, c: Character, progress=lambda p
     if sel is None:
         raise GateError("select a candidate before generating the sheet")
     rules, _ = style_anchor(book)
-    if is_manual(session):
+    if images_manual(session):
         # One combined sheet instead of 6 images: one ChatGPT round trip.
         jobs = [("sheet", "combined", None)]
         prompts = [f"Character reference sheet of {c.name}, a {c.species}. {c.proportions}. Signature feature: "
@@ -438,9 +438,14 @@ def generate_sample(session: Session, book: Book) -> dict[str, Any]:
     from .generation import build_image_prompt, image_size_hint, manual_page_prompt
 
     chars = session.query(Character).filter(Character.book_id == book.id).all()
-    who = " and ".join(c.name for c in chars) or "the main character"
-    description = f"{who} together in a typical scene of the book, full page coloring scene"
-    if is_manual(session):
+    if chars:
+        who = " and ".join(c.name for c in chars)
+        description = f"{who} together in a typical scene of the book, full page coloring scene"
+    else:  # collection book: every page has its own subject
+        theme = next((t for t in book.themes if t.chosen), None)
+        topic = f" about {theme.title}" if theme else ""
+        description = f"one typical subject of a book{topic}, drawn large and centered as a full page coloring illustration"
+    if images_manual(session):
         prompt = manual_page_prompt(book, "scene", description, chars, [])
     else:
         prompt = build_image_prompt(book, "scene", description, chars, [])

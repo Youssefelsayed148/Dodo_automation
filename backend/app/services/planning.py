@@ -200,7 +200,8 @@ def plan_pages(session: Session, book: Book) -> list[Page]:
     theme = chosen_theme(book)
     slots = content_slots(book, fmt)
     chars = [c for c in session.query(Character).filter(Character.book_id == book.id).all()]
-    char_desc = "; ".join(f"{c.name} ({c.species}, {c.signature_feature})" for c in chars) or "none yet (describe generic friendly characters)"
+    char_desc = "; ".join(f"{c.name} ({c.species}, {c.signature_feature})" for c in chars) or ("none - no recurring characters: every image page features its own subject taken from the theme "
+                                "(for example a different animal or fruit on each page, never repeating a subject)")
     variables = {
         "theme": f"{theme.title}: {theme.description}" if theme else book.title,
         "recipe": recipe_text(book.recipe),

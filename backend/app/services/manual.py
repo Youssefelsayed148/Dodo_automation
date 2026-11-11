@@ -75,6 +75,12 @@ def auto_manual() -> bool:
     return s.text_provider == "mock" and s.image_provider in ("mock", "manual")
 
 
+def images_manual(session: Session | None = None) -> bool:
+    """Images are made by the user in ChatGPT. True in full manual mode, and also in the hybrid setup
+    (text/vision through the API, IMAGE_PROVIDER=manual)."""
+    return is_manual(session) or get_settings().image_provider == "manual"
+
+
 def setting_manual(session: Session | None = None) -> bool | None:
     try:
         if session is not None:
@@ -98,7 +104,7 @@ def is_manual(session: Session | None = None) -> bool:
 
 
 def mode_info(session: Session | None = None) -> dict[str, Any]:
-    return {"active": is_manual(session), "setting": setting_manual(session), "env": env_manual(), "auto": auto_manual()}
+    return {"active": images_manual(session), "text": is_manual(session), "setting": setting_manual(session), "env": env_manual(), "auto": auto_manual()}
 
 
 # ----------------------------------------------------------------- helpers
@@ -281,7 +287,7 @@ def image_batch(book_id: int, task: str, items: list[ImageReq], *, group: str = 
     AwaitingManual. Skipped items come back as None."""
     if not items:
         return []
-    if not is_manual():
+    if not images_manual():
         from ..providers.registry import get_image_provider
 
         provider = get_image_provider(provider_name or None)

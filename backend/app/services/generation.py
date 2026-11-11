@@ -345,10 +345,10 @@ def run_generation(book_id: int, ctx) -> dict[str, Any]:
     """Job body: process queued pages of a book in batches. Resumable: only
     `queued` pages are processed, so a restart continues where it stopped."""
     from ..jobs.runner import JobStopped
-    from .manual import is_manual
+    from .manual import images_manual
     from .usage import book_cost
 
-    if is_manual():
+    if images_manual():
         return run_generation_manual(book_id, ctx)
 
     with SessionLocal() as s:

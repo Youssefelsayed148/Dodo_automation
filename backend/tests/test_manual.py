@@ -420,3 +420,37 @@ def test_text_prompt_and_schema_are_compact():
     assert '"title":"ThemesOut"' not in s  # schema titles are dropped
     p = text_prompt("Do it.", ThemesOut.model_json_schema(), refs_count=2)
     assert p.startswith("Do it.") and "attached 2 picture" in p and "ONE JSON object" in p
+
+
+def test_hybrid_text_by_api_images_by_hand(client, monkeypatch):
+    """TEXT_PROVIDER stays on the API (mock here), IMAGE_PROVIDER=manual: text steps run by themselves, only the
+    image steps become ChatGPT tasks."""
+    from app.config import get_settings
+    from app.services import manual
+
+    monkeypatch.setenv("MANUAL_MODE", "0")
+    monkeypatch.setenv("IMAGE_PROVIDER", "manual")
+    get_settings.cache_clear()
+    try:
+        assert manual.images_manual() and not manual.is_manual()
+        b = themed_book(client)  # analysis, themes, formats: no ChatGPT task for any of them
+        bid = b["id"]
+        assert pending(client, bid) == []
+        wait_ok(client, client.post(f"/api/books/{bid}/characters/briefs", json={"count": 1}).json())
+        cid = client.get(f"/api/books/{bid}/characters").json()["characters"][0]["id"]
+        job = client.post(f"/api/books/{bid}/characters/{cid}/candidates").json()
+        run_jobs()
+        tasks = pending(client, bid)
+        assert len(tasks) == 4 and all(t["kind"] == "image" for t in tasks)
+        assert client.get(f"/api/books/{bid}/manual").json()["manual_mode"] is True
+        assert job["id"]
+    finally:
+        monkeypatch.undo()
+        get_settings.cache_clear()
+
+
+def test_collection_book_without_characters_can_plan_and_sample(client):
+    b = themed_book(client)
+    bid = b["id"]
+    g = client.get(f"/api/books/{bid}/characters").json()["gates"]
+    assert g["characters_total"] == 0 and g["characters_ok"] is True

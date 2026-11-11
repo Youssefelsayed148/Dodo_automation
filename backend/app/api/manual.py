@@ -57,7 +57,7 @@ def list_tasks(book: Book = Depends(get_book), db: Session = Depends(get_db)):
     groups = [{**g, "job_type": jobs[g["job_id"]].type if g["job_id"] in jobs else None,
                "tasks": [task_out(t, jobs) for t in g["tasks"]]} for g in manual.group_tasks(open_tasks)]
     return {
-        "manual_mode": manual.is_manual(db),
+        "manual_mode": manual.images_manual(db),
         "chatgpt_url": manual.CHATGPT_URL,
         "groups": groups,
         "pending": [task_out(t, jobs) for t in open_tasks],
