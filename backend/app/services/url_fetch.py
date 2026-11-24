@@ -168,8 +168,16 @@ class PageInfo:
         return "\n".join(seen)
 
     @property
+    def is_text_thin(self) -> bool:
+        """No real description was read (pictures alone are a weak basis for the concept)."""
+        desc = self.description.strip() or str(self.product.get("description", "") or "")
+        readable = 0 if is_boilerplate_description(desc) else len(desc)
+        return readable < THIN_TEXT_CHARS and len(self.body_text) < 3 * THIN_TEXT_CHARS
+
+    @property
     def is_thin(self) -> bool:
-        readable = len(self.description.strip() or str(self.product.get("description", "") or ""))
+        desc = self.description.strip() or str(self.product.get("description", "") or "")
+        readable = 0 if is_boilerplate_description(desc) else len(desc)
         return readable < THIN_TEXT_CHARS and len(self.body_text) < 3 * THIN_TEXT_CHARS and not self.image_urls
 
     def as_dict(self) -> dict[str, Any]:
@@ -266,6 +274,15 @@ def parse_html(html: str, base_url: str) -> PageInfo:
     return info
 
 
+AMAZON_UI_NOISE = re.compile(r"Brief content visible, double tap to read full content\.|"
+                             r"Full content visible, double tap to read brief content\.|Read more|Read less", re.I)
+BOILERPLATE_DESC = re.compile(r"on Amazon\.[a-z.]+\.?\s*\*?FREE\*? shipping|free shipping on qualifying offers", re.I)
+
+
+def is_boilerplate_description(text: str) -> bool:
+    return bool(BOILERPLATE_DESC.search(text or ""))
+
+
 AMAZON_SIZE_TOKEN = re.compile(r"\._[A-Z0-9_,\-]+_(?=\.(?:jpe?g|png|webp)$)", re.I)
 
 
@@ -321,14 +338,18 @@ def _parse_amazon(soup, info: PageInfo) -> None:
     if byline:
         info.brand_terms.append(" ".join(byline.get_text(" ", strip=True).split()))
     parts: list[str] = []
-    for sel in ("#bookDescription_feature_div", "#productDescription", "#feature-bullets",
-                "#editorialReviews_feature_div", "#detailBullets_feature_div"):
+    for sel in ("#bookDescription_feature_div", "#productDescription", "#productDescription_feature_div",
+                "#drengr_MobileTabbedDescriptionOverviewContent_feature_div", "#drengr_mobileTabbedDescription_feature_div",
+                "#feature-bullets", "#editorialReviews_feature_div", "#detailBullets_feature_div",
+                "#featureBulletsAndDetailBullets_feature_div"):
         for node in soup.select(sel):
-            txt = " ".join(node.get_text(" ", strip=True).split())
-            if len(txt) > 20:
+            txt = AMAZON_UI_NOISE.sub(" ", " ".join(node.get_text(" ", strip=True).split())).strip()
+            if len(txt) > 20 and not any(txt in p or p in txt for p in parts):
                 parts.append(txt)
     if parts:
         info.description = "\n".join(parts)[:4000]
+    elif is_boilerplate_description(info.description):
+        info.description = ""  # Amazon's stock meta blurb ("... on Amazon.com. *FREE* shipping ...") says nothing
     urls: list[str] = []
     for img in soup.select("#landingImage, #imgBlkFront, #ebooksImgBlkFront, #main-image"):
         dyn = img.get("data-a-dynamic-image")
@@ -348,7 +369,7 @@ def _parse_amazon(soup, info: PageInfo) -> None:
     big: list[str] = []
     for u in urls + list(info.image_urls):
         u = AMAZON_SIZE_TOKEN.sub("", u)  # drop the ._AC_US40_ thumbnail token -> full size
-        if "images/I/" in u and u not in big and "sprite" not in u:
+        if "images/I/" in u and u not in big and "sprite" not in u and not u.lower().endswith(".svg"):
             big.append(u)
     if big:
         info.image_urls = big[:MAX_IMAGES]
@@ -380,6 +401,10 @@ def fetch_page(url: str, *, resolver: Resolver = default_resolver,
         html = body.decode("utf-8", errors="replace")
         if looks_like_bot_wall(html):
             last = SiteBlocked(f"{urlparse(final).hostname} showed a robot check instead of the page")
+            continue
+        if is_amazon(final) and "productTitle" not in html:
+            # Amazon answers some browser identities with a tiny stub without product data; try the next one.
+            last = SiteBlocked(f"{urlparse(final).hostname} returned an empty product page")
             continue
         info = parse_html(html, final)
         info.url = url.strip()

@@ -18,8 +18,23 @@ export default function SourceStep({ book, onNext }: StepProps) {
   const [jobId, setJobId] = useStepJob(book.id, ["analyze_source"]);
   const { job, running } = useJob(jobId, () => onNext(), [["book", book.id]]);
 
+  const [name, setName] = useState(book.title === "Untitled book" ? "" : book.title);
+  const rename = useMutation({
+    mutationFn: (title: string) => api.rename(book.id, title),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["book", book.id] });
+      qc.invalidateQueries({ queryKey: ["books"] });
+    },
+  });
+  const saveName = () => {
+    const n = name.trim();
+    if (n && n !== book.title) rename.mutate(n);
+  };
+
   const submit = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
+      const n = name.trim();
+      if (n && n !== book.title) await api.rename(book.id, n);
       const fd = new FormData();
       if (mode !== "text") fd.append("url", link.trim());
       fd.append("text", text.trim());
@@ -46,6 +61,18 @@ export default function SourceStep({ book, onNext }: StepProps) {
         ))}
       </div>
       <div className="card">
+        <div className="field">
+          <label htmlFor="book-name">{t("source.book_name")}</label>
+          <input
+            id="book-name"
+            type="text"
+            maxLength={300}
+            placeholder={t("source.book_name_placeholder")}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={saveName}
+          />
+        </div>
         {mode !== "text" && (
           <div className="field">
             <label htmlFor="src-url">{t("source.url_label")}</label>

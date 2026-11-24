@@ -79,7 +79,7 @@ def fetch_source(book: Book) -> dict[str, Any]:
     d = info.as_dict()
     d["images_saved"] = saved
     d["brand_terms"] = info.brand_terms
-    d["status"] = "thin" if info.is_thin and saved == 0 else "ok"
+    d["status"] = "thin" if info.is_text_thin else "ok"
     return d
 
 

@@ -134,3 +134,28 @@ def test_body_text_fallback_for_pages_without_meta():
             "<p>Each page has a small challenge so children can play, count and color at their own pace.</p></body></html>")
     info = parse_html(html, "https://shop.example.com/dino")
     assert "fossil mazes" in info.body_text and not info.is_thin
+
+
+STUB = "<html><head><title>The Big Book of WHY?</title><meta name=\"description\" content=\"The Big Book of WHY? [Ahmed] on Amazon.com. *FREE* shipping on qualifying offers.\"></head><body></body></html>"
+MOBILE = ("<html><body><span id=\"productTitle\">The Big Book of WHY?</span>"
+          "<div id=\"drengr_mobileTabbedDescription_feature_div\">Brief content visible, double tap to read full content. "
+          "Book overview 50 fascinating questions about animals, space and the human body for curious kids ages 8-12.</div>"
+          "</body></html>")
+
+
+def test_amazon_stub_is_skipped_and_mobile_page_read():
+    agents: list[str] = []
+
+    def handler(request: httpx.Request):
+        agents.append(request.headers["user-agent"])
+        return httpx.Response(200, headers={"content-type": "text/html"}, text=STUB if len(agents) == 1 else MOBILE)
+
+    info = fetch_page("https://www.amazon.com/dp/B0HR19V6T5", resolver=public, transport=httpx.MockTransport(handler))
+    assert len(agents) == 2 and "iPhone" in agents[1]
+    assert "50 fascinating questions" in info.description and "double tap" not in info.description
+    assert not info.is_text_thin
+
+
+def test_boilerplate_amazon_blurb_counts_as_thin():
+    info = parse_html(STUB, "https://shop.example.com/x")
+    assert info.is_text_thin

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..db import get_db
-from ..jobs.runner import ACTIVE_STATUSES
+from ..jobs.runner import ACTIVE_STATUSES, resume_if_ready
 from ..models import Book, Job, ManualTask
 from ..services import manual, storage
 from ..services.uploads import sniff
@@ -53,6 +53,12 @@ def _get_task(db: Session, task_id: int) -> ManualTask:
 @router.get("/books/{book_id}/manual")
 def list_tasks(book: Book = Depends(get_book), db: Session = Depends(get_db)):
     jobs = {j.id: j for j in db.scalars(select(Job).where(Job.book_id == book.id, Job.status.in_(ACTIVE_STATUSES))).all()}
+    # Self-heal: a job parked as "waiting" with no pending task would block the UI forever; re-queue it
+    # (the job re-creates its task when it runs again).
+    healed = [j for j in jobs.values() if j.status == "waiting" and resume_if_ready(j.id)]
+    if healed:
+        db.expire_all()
+        jobs = {j.id: j for j in db.scalars(select(Job).where(Job.book_id == book.id, Job.status.in_(ACTIVE_STATUSES))).all()}
     open_tasks = manual.open_tasks(db, book.id)
     groups = [{**g, "job_type": jobs[g["job_id"]].type if g["job_id"] in jobs else None,
                "tasks": [task_out(t, jobs) for t in g["tasks"]]} for g in manual.group_tasks(open_tasks)]
